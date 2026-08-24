@@ -1,0 +1,54 @@
+{
+  "superAdmin": {
+    "firstName": "Super",
+    "lastName": "Admin",
+    "username": "",
+    "email": "",
+    "password": ""
+  },
+  "schoolSettings": {
+    "schoolName": "My School",
+    "timezone": "Asia/Karachi",
+    "dateFormat": "DD/MM/YYYY",
+    "currencyCode": "PKR",
+    "currencySymbol": "₨",
+    "currencyPosition": "before",
+    "academicYearStartMonth": 4,
+    "defaultPassPercentage": 40.00,
+    "minAttendancePercentage": 75.00
+  },
+  "defaultClasses": [
+    { "name": "Playgroup",  "level": 1,  "academic_level": "pre_primary"       },
+    { "name": "Nursery",    "level": 2,  "academic_level": "pre_primary"       },
+    { "name": "KG",         "level": 3,  "academic_level": "pre_primary"       },
+    { "name": "Class 1",    "level": 4,  "academic_level": "primary"           },
+    { "name": "Class 2",    "level": 5,  "academic_level": "primary"           },
+    { "name": "Class 3",    "level": 6,  "academic_level": "primary"           },
+    { "name": "Class 4",    "level": 7,  "academic_level": "primary"           },
+    { "name": "Class 5",    "level": 8,  "academic_level": "primary"           },
+    { "name": "Class 6",    "level": 9,  "academic_level": "middle"            },
+    { "name": "Class 7",    "level": 10, "academic_level": "middle"            },
+    { "name": "Class 8",    "level": 11, "academic_level": "middle"            },
+    { "name": "Class 9",    "level": 12, "academic_level": "secondary"         },
+    { "name": "Class 10",   "level": 13, "academic_level": "secondary"         },
+    { "name": "Class 11",   "level": 14, "academic_level": "higher_secondary"  },
+    { "name": "Class 12",   "level": 15, "academic_level": "higher_secondary"  }
+  ],
+  "subjects": [
+    { "name": "English",          "nameInitials": "ENG",  "category": "general" },
+    { "name": "Urdu",             "nameInitials": "URD",  "category": "general" },
+    { "name": "Islamyat",         "nameInitials": "ISL",  "category": "general" },
+    { "name": "Mathematics",      "nameInitials": "MATH", "category": "general" },
+    { "name": "Science",          "nameInitials": "SCI",  "category": "science" },
+    { "name": "Social Studies",   "nameInitials": "SS",   "category": "general" },
+    { "name": "History",          "nameInitials": "HIST", "category": "general" },
+    { "name": "General Knowledge","nameInitials": "GK",   "category": "general" },
+    { "name": "Geography",        "nameInitials": "GEO",  "category": "general" },
+    { "name": "Computer Science", "nameInitials": "CS",   "category": "science" },
+    { "name": "Pushto",           "nameInitials": "PSH",  "category": "general" },
+    { "name": "Physics",          "nameInitials": "PHY",  "category": "science" },
+    { "name": "Chemistry",        "nameInitials": "CHEM", "category": "science" },
+    { "name": "Biology",          "nameInitials": "BIO",  "category": "science" },
+    { "name": "Mutalia e Quran",  "nameInitials": "MQ",   "category": "general" }
+  ]
+}

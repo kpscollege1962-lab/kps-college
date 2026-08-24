@@ -1,0 +1,39 @@
+@media print {
+
+  /* ── Hide everything on the page by default ─────────────── */
+  body:has(.timetable-print-target) * {
+    visibility: hidden;
+  }
+
+  /* ── Show only the print target and its children ────────── */
+  body:has(.timetable-print-target) .timetable-print-target,
+  body:has(.timetable-print-target) .timetable-print-target * {
+    visibility: visible;
+  }
+
+  /* ── Position print target at top-left of page ──────────── */
+  .timetable-print-target {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 190mm;
+    overflow: visible !important;
+  }
+
+  /* ── Table layout adjustments for print ─────────────────── */
+  .timetable-print-target table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  /* ── Ensure sticky headers print correctly ───────────────── */
+  /* Sticky positioning doesn't work in print — reset to static */
+  .timetable-print-target thead tr th {
+    position: static !important;
+  }
+
+  .timetable-print-target tbody tr td:first-child {
+    position: static !important;
+  }
+}

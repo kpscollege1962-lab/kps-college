@@ -1,0 +1,25 @@
+@media print {
+
+  /* ── Hide everything on the page by default ─────────────── */
+  body:has(.attendance-report-print-target) * {
+    visibility: hidden;
+  }
+
+  body:has(.attendance-report-print-target) .attendance-report-print-target,
+  body:has(.attendance-report-print-target) .attendance-report-print-target * {
+    visibility: visible;
+  }
+
+  .attendance-report-print-target {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 190mm;
+  }
+
+  .attendance-report-print-target table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+}
