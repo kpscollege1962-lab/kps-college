@@ -12,6 +12,17 @@ const slotIncludes = [
   { model: Staff,   as: 'staff2',   attributes: ['id', 'full_name', 'name_initials'] },
 ];
 
+// ── Concurrent-period exemption by slot label ──────────────────────────────────
+// PT/DRILL periods are run by one staff member across several classes/sections
+// at the same time by design, so they're exempt from the "staff can only be in
+// one place per period" check — for whichever staff member is assigned, not
+// just a specific person. Match is case-insensitive and trims whitespace.
+
+const CONCURRENT_EXEMPT_LABELS = ['PT', 'DRILL'];
+
+const isConcurrentExemptLabel = (label) =>
+  !!label && CONCURRENT_EXEMPT_LABELS.includes(label.trim().toUpperCase());
+
 // ── Staff period conflict check ────────────────────────────────────────────────
 // A staff member can only appear in one slot per period (across all class groups/sections).
 
@@ -19,7 +30,9 @@ const slotIncludes = [
 // exclude from the conflict search. A swap excludes BOTH the source and destination
 // positions when they share the same period, since the staff member's own pre-swap
 // row may still physically occupy the other position until the transaction commits.
-const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, excludePositions }) => {
+const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, excludePositions }) => {
+  if (isConcurrentExemptLabel(label)) return; // PT/DRILL — exempt regardless of staff
+
   const posting = await StaffPosting.findOne({
     where: { staff_id: staffId, campus_id: campusId },
   });
@@ -52,15 +65,24 @@ const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, excludePo
 const upsertSlot = async ({ campusId, classGroupId, sectionId, periodId, label, subjectId1, subjectId2, staffId1, staffId2, breakPosition }) => {
   await findPeriodOrFail({ periodId, campusId });
 
+  // Resolve the label this slot will actually carry after this write — the
+  // incoming value if one was given, otherwise whatever the slot already has —
+  // since the conflict-check exemption must reflect the slot's real content,
+  // not just what happens to be in this particular request payload.
+  const existingSlot = await TimetableSlot.findOne({
+    where: { period_id: periodId, class_group_id: classGroupId, section_id: sectionId },
+  });
+  const effectiveLabel = label !== undefined ? label : (existingSlot?.label ?? null);
+
   if (staffId1 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId1, periodId, campusId,
+      staffId: staffId1, periodId, campusId, label: effectiveLabel,
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
   if (staffId2 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId2, periodId, campusId,
+      staffId: staffId2, periodId, campusId, label: effectiveLabel,
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
@@ -155,14 +177,15 @@ const swapSlots = async ({
     const contentB = contentOf(recordB);
     // Staff conflict checks — each staff member's NEW placement is checked against
     // its own DESTINATION period, not a shared one. B's staff moves into A's period;
-    // A's staff moves into B's period.
+    // A's staff moves into B's period. Each check uses the LABEL that's moving along
+    // with that content, so a PT/DRILL slot swapped into a new period stays exempt.
     // Exclude BOTH slot positions from each check. This matters specifically when
     // slotA.periodId === slotB.periodId — the staff member's own pre-swap row may still
     // be sitting at the *other* slot's position (not yet overwritten) when this check
     // runs, and that row must not be mistaken for a genuine conflict.
     if (contentB.staff_id_1 != null) {
       await checkStaffPeriodConflict({
-        staffId: contentB.staff_id_1, periodId: slotA.periodId, campusId,
+        staffId: contentB.staff_id_1, periodId: slotA.periodId, campusId, label: contentB.label,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -171,7 +194,7 @@ const swapSlots = async ({
     }
     if (contentB.staff_id_2 != null) {
       await checkStaffPeriodConflict({
-        staffId: contentB.staff_id_2, periodId: slotA.periodId, campusId,
+        staffId: contentB.staff_id_2, periodId: slotA.periodId, campusId, label: contentB.label,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -180,7 +203,7 @@ const swapSlots = async ({
     }
     if (contentA.staff_id_1 != null) {
       await checkStaffPeriodConflict({
-        staffId: contentA.staff_id_1, periodId: slotB.periodId, campusId,
+        staffId: contentA.staff_id_1, periodId: slotB.periodId, campusId, label: contentA.label,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -189,7 +212,7 @@ const swapSlots = async ({
     }
     if (contentA.staff_id_2 != null) {
       await checkStaffPeriodConflict({
-        staffId: contentA.staff_id_2, periodId: slotB.periodId, campusId,
+        staffId: contentA.staff_id_2, periodId: slotB.periodId, campusId, label: contentA.label,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },

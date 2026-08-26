@@ -1,3 +1,6 @@
+import PrintHeader from './Printheader.jsx'
+import PrintWatermark from './PrintWatermark.jsx'
+
 const formatTimeShort = (t) => {
   if (!t) return null
   const [h, m] = t.split(':').map(Number)
@@ -38,7 +41,19 @@ const TimingRow = ({ timing }) => {
   )
 }
 
-export default function StaffWisePreview({ staff, periods, printRef }) {
+// Builds a "SUBJ1 / SUBJ2" label from whichever subject(s) are present on an
+// entry. A staff member may be tagged as staff_id_1 (subject1 only),
+// staff_id_2 (subject2 only), or both (subject1 + subject2) — so this must
+// not assume subject1 is always populated.
+const buildSubjectLine = (entry) => {
+  if (!entry) return null
+  const parts = [entry.subject1, entry.subject2]
+    .filter(Boolean)
+    .map((s) => s.name_initials ?? s.name)
+  return parts.length > 0 ? parts.join(' / ') : null
+}
+
+export default function StaffWisePreview({ staff, periods, printRef, titleUrl, monogramUrl, watermarkUrl }) {
   if (!staff || staff.length === 0) {
     return (
       <p className="text-center text-sm text-muted-foreground py-12">
@@ -54,130 +69,132 @@ export default function StaffWisePreview({ staff, periods, printRef }) {
         .map((n) => ({ key: n, periodNumber: n, timings: null }))
 
   return (
-    <div ref={printRef} className="overflow-auto timetable-print-target">
-      <table className="border-separate border-spacing-0 text-xs w-full">
-        <thead className="sticky top-0 z-10 bg-muted">
-          <tr>
-            <th className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left min-w-[95px] text-xs font-semibold">
-              Staff
-            </th>
-            {columns.map((col) => {
-              const fdTiming = col.timings?.find((t) => t.config === 'full_day')
-              const hdTiming = col.timings?.find((t) => t.config === 'half_day')
-              return (
-                <th
-                  key={col.key}
-                  className="border border-border px-2 py-1.5 text-center font-semibold"
-                >
-                  <div className="border-b border-border/50 pb-0.5 mb-0.5">
-                    <TimingRow timing={fdTiming} />
-                  </div>
-                  <TimingRow timing={hdTiming} />
-                </th>
-              )
-            })}
-          </tr>
-        </thead>
+    <div ref={printRef} className="relative overflow-auto timetable-print-target">
+      <PrintWatermark watermarkUrl={watermarkUrl} />
 
-        <tbody>
-          {staff.map((member) => (
-            <tr key={member.id}>
-              <td className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs">
-                <div className="font-medium text-foreground">{member.full_name}</div>
-                {member.name_initials && (
-                  <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
-                )}
-              </td>
+      <div className="relative z-10">
+        <PrintHeader titleUrl={titleUrl} monogramUrl={monogramUrl} />
 
+        <table className="border-separate border-spacing-0 text-xs w-full">
+          <thead className="sticky top-0 z-10 bg-muted">
+            <tr>
+              <th className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left min-w-[95px] text-xs font-semibold">
+                Staff
+              </th>
               {columns.map((col) => {
-                const entries = member.slots.filter((sl) => sl.periodNumber === col.periodNumber)
-
-                if (entries.length > 1) {
-                  return (
-                    <td key={col.key} className="border border-border p-1.5 align-top text-xs">
-                      <div>
-                        {entries.map((entry, i) => {
-                          const entrySubjectLine = entry.subject1
-                            ? `${entry.subject1.name_initials ?? entry.subject1.name}${entry.subject2 ? ` / ${entry.subject2.name_initials ?? entry.subject2.name}` : ''}`
-                            : null
-                          return (
-                            <div
-                              key={i}
-                              className={i > 0 ? 'border-t border-border/40 py-0.5' : 'py-0.5'}
-                            >
-                              <p className="font-medium text-foreground leading-tight">
-                                {entry.classGroupName}
-                                {entry.sectionName && <span> · {entry.sectionName}</span>}
-                              </p>
-                              {entrySubjectLine && (
-                                <p className="text-muted-foreground/80 leading-tight">{entrySubjectLine}</p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </td>
-                  )
-                }
-
-                const slot = entries[0] ?? null
-                const subjectLine = slot?.subject1
-                  ? `${slot.subject1.name_initials ?? slot.subject1.name}${slot.subject2 ? ` / ${slot.subject2.name_initials ?? slot.subject2.name}` : ''}`
-                  : null
-
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
-                const hasBreak = (fdTiming?.break_duration ?? 0) > 0
-                const breakPosition =
-                  (slot?.breakPosition === 'before' || slot?.breakPosition === 'after') && hasBreak
-                    ? slot.breakPosition
-                    : null
-
-                const contentNode = slot ? (
-                  <div className="space-y-0.5">
-                    <p className="font-medium text-foreground leading-tight">
-                      {slot.classGroupName}
-                      {slot.sectionName && <span> · {slot.sectionName}</span>}
-                    </p>
-                    {subjectLine && (
-                      <p className="text-muted-foreground/80 leading-tight">{subjectLine}</p>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground italic select-none">—</span>
-                )
-
+                const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <td key={col.key} className="border border-border align-top text-xs relative">
-                    {breakPosition ? (
-                      <div className="absolute inset-0 flex min-h-[48px]">
-                        {breakPosition === 'before' && (
-                          <div className="w-6 bg-amber-500/10 border-r border-amber-500/40 flex items-center justify-center shrink-0">
-                            <span className="text-[9px] text-amber-600 dark:text-amber-400 rotate-90 whitespace-nowrap">
-                              Break
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1 p-1.5">
-                          {contentNode}
-                        </div>
-                        {breakPosition === 'after' && (
-                          <div className="w-6 bg-blue-500/10 border-l border-blue-500/40 flex items-center justify-center shrink-0">
-                            <span className="text-[9px] text-blue-600 dark:text-blue-400 rotate-90 whitespace-nowrap">
-                              Break
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-1.5 min-h-[48px]">{contentNode}</div>
-                    )}
-                  </td>
+                  <th
+                    key={col.key}
+                    className="border border-border px-2 py-1.5 text-center font-semibold"
+                  >
+                    <div className="border-b border-border/50 pb-0.5 mb-0.5">
+                      <TimingRow timing={fdTiming} />
+                    </div>
+                    <TimingRow timing={hdTiming} />
+                  </th>
                 )
               })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {staff.map((member) => (
+              <tr key={member.id}>
+                <td className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs">
+                  <div className="font-medium text-foreground">{member.full_name}</div>
+                  {member.name_initials && (
+                    <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
+                  )}
+                </td>
+
+                {columns.map((col) => {
+                  const entries = member.slots.filter((sl) => sl.periodNumber === col.periodNumber)
+
+                  if (entries.length > 1) {
+                    return (
+                      <td key={col.key} className="border border-border p-1.5 align-top text-xs">
+                        <div>
+                          {entries.map((entry, i) => {
+                            const entrySubjectLine = buildSubjectLine(entry)
+                            return (
+                              <div
+                                key={i}
+                                className={i > 0 ? 'border-t border-border/40 py-0.5' : 'py-0.5'}
+                              >
+                                <p className="font-medium text-foreground leading-tight">
+                                  {entry.classGroupName}
+                                  {entry.sectionName && <span> · {entry.sectionName}</span>}
+                                </p>
+                                {entrySubjectLine && (
+                                  <p className="text-muted-foreground/80 leading-tight">{entrySubjectLine}</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    )
+                  }
+
+                  const slot = entries[0] ?? null
+                  const subjectLine = buildSubjectLine(slot)
+
+                  const fdTiming = col.timings?.find((t) => t.config === 'full_day')
+                  const hasBreak = (fdTiming?.break_duration ?? 0) > 0
+                  const breakPosition =
+                    (slot?.breakPosition === 'before' || slot?.breakPosition === 'after') && hasBreak
+                      ? slot.breakPosition
+                      : null
+
+                  const contentNode = slot ? (
+                    <div className="space-y-0.5">
+                      <p className="font-medium text-foreground leading-tight">
+                        {slot.classGroupName}
+                        {slot.sectionName && <span> · {slot.sectionName}</span>}
+                      </p>
+                      {subjectLine && (
+                        <p className="text-muted-foreground/80 leading-tight">{subjectLine}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground italic select-none">—</span>
+                  )
+
+                  return (
+                    <td key={col.key} className="border border-border align-top text-xs relative">
+                      {breakPosition ? (
+                        <div className="absolute inset-0 flex min-h-[48px]">
+                          {breakPosition === 'before' && (
+                            <div className="w-6 bg-amber-500/10 border-r border-amber-500/40 flex items-center justify-center shrink-0">
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 rotate-90 whitespace-nowrap">
+                                Break
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex-1 p-1.5">
+                            {contentNode}
+                          </div>
+                          {breakPosition === 'after' && (
+                            <div className="w-6 bg-blue-500/10 border-l border-blue-500/40 flex items-center justify-center shrink-0">
+                              <span className="text-[9px] text-blue-600 dark:text-blue-400 rotate-90 whitespace-nowrap">
+                                Break
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-1.5 min-h-[48px]">{contentNode}</div>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

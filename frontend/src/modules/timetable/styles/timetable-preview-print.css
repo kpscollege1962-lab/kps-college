@@ -36,4 +36,19 @@
   .timetable-print-target tbody tr td:first-child {
     position: static !important;
   }
+
+  /* ── Watermark / header images ────────────────────────────── */
+  /* Force browsers to render images (not just background colors) at their
+     set opacity instead of silently dropping/flattening them during print. */
+  .timetable-print-watermark,
+  .timetable-print-watermark img,
+  .timetable-print-header img {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Watermark must stay behind the table content and not affect page flow */
+  .timetable-print-watermark {
+    position: absolute;
+  }
 }
