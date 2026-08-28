@@ -41,7 +41,7 @@ const TimingRow = ({ timing }) => {
   )
 }
 
-export default function SubjectWisePreview({ subjects, periods, printRef, titleUrl, monogramUrl, watermarkUrl }) {
+export default function SubjectWisePreview({ subjects, periods, printRef, titleUrl, watermarkUrl }) {
   if (!subjects || subjects.length === 0) {
     return (
       <p className="text-center text-sm text-muted-foreground py-12">
@@ -61,7 +61,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
       <PrintWatermark watermarkUrl={watermarkUrl} />
 
       <div className="relative z-10">
-        <PrintHeader titleUrl={titleUrl} monogramUrl={monogramUrl} />
+        <PrintHeader titleUrl={titleUrl} />
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">

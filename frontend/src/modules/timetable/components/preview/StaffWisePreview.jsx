@@ -53,7 +53,7 @@ const buildSubjectLine = (entry) => {
   return parts.length > 0 ? parts.join(' / ') : null
 }
 
-export default function StaffWisePreview({ staff, periods, printRef, titleUrl, monogramUrl, watermarkUrl }) {
+export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl }) {
   if (!staff || staff.length === 0) {
     return (
       <p className="text-center text-sm text-muted-foreground py-12">
@@ -73,7 +73,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, m
       <PrintWatermark watermarkUrl={watermarkUrl} />
 
       <div className="relative z-10">
-        <PrintHeader titleUrl={titleUrl} monogramUrl={monogramUrl} />
+        <PrintHeader titleUrl={titleUrl} />
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">

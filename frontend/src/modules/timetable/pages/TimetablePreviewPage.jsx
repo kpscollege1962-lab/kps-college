@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, RefreshCw, Printer, Type, Image as ImageIcon, Droplets, X } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Printer, Type, Droplets, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useSessionContext } from '@/shells/portal/hooks/useSessionContext'
@@ -70,29 +70,43 @@ const ImageUploadButton = ({ label, icon: Icon, imageUrl, onSelect, onClear }) =
   )
 }
 
-// Manages a single uploaded image as an object URL — select/clear/revoke.
-const useImageUpload = () => {
-  const [url, setUrl] = useState(null)
+// Manages a single uploaded image, persisted as a data URL in localStorage
+// under the given key — survives page refreshes/browser restarts until the
+// person clears it or uploads a new one. Falls back to in-memory-only if
+// localStorage is unavailable or the image is too large to fit (quota
+// errors are swallowed — the upload still works for the current session,
+// it just won't survive a refresh).
+const useImageUpload = (storageKey) => {
+  const [url, setUrl] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) || null
+    } catch {
+      return null
+    }
+  })
 
   const select = useCallback((file) => {
-    setUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return URL.createObjectURL(file)
-    })
-  }, [])
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result
+      setUrl(dataUrl)
+      try {
+        localStorage.setItem(storageKey, dataUrl)
+      } catch {
+        // Quota exceeded or storage disabled — image still works this session
+      }
+    }
+    reader.readAsDataURL(file)
+  }, [storageKey])
 
   const clear = useCallback(() => {
-    setUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return null
-    })
-  }, [])
-
-  // Release on unmount
-  useEffect(() => {
-    return () => { if (url) URL.revokeObjectURL(url) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    setUrl(null)
+    try {
+      localStorage.removeItem(storageKey)
+    } catch {
+      // ignore
+    }
+  }, [storageKey])
 
   return { url, select, clear }
 }
@@ -108,10 +122,10 @@ export default function TimetablePreviewPage() {
 
   const [activeTab, setActiveTab] = useState('class')
 
-  // ── Print customization: title, monogram, watermark (all images) ────────────
-  const titleImg     = useImageUpload()
-  const monogramImg  = useImageUpload()
-  const watermarkImg = useImageUpload()
+  // ── Print customization: title (banner image, includes logo) + watermark ────
+  // Persisted in localStorage so they survive a page refresh.
+  const titleImg     = useImageUpload('timetable-preview-title')
+  const watermarkImg = useImageUpload('timetable-preview-watermark')
 
   const {
     classData, classLoading, classError, fetchClassWise,
@@ -174,14 +188,6 @@ export default function TimetablePreviewPage() {
           />
 
           <ImageUploadButton
-            label="Monogram"
-            icon={ImageIcon}
-            imageUrl={monogramImg.url}
-            onSelect={monogramImg.select}
-            onClear={monogramImg.clear}
-          />
-
-          <ImageUploadButton
             label="Watermark"
             icon={Droplets}
             imageUrl={watermarkImg.url}
@@ -192,6 +198,7 @@ export default function TimetablePreviewPage() {
           <Button variant="ghost" size="icon-sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4" />
           </Button>
+
           <Button variant="outline" size="sm" onClick={print} className="gap-1.5">
             <Printer className="h-3.5 w-3.5" />
             Print
@@ -218,7 +225,6 @@ export default function TimetablePreviewPage() {
                     rows={classData.rows}
                     printRef={gridRef}
                     titleUrl={titleImg.url}
-                    monogramUrl={monogramImg.url}
                     watermarkUrl={watermarkImg.url}
                   />
                 )
@@ -237,7 +243,6 @@ export default function TimetablePreviewPage() {
                     periods={classData?.periods ?? []}
                     printRef={gridRef}
                     titleUrl={titleImg.url}
-                    monogramUrl={monogramImg.url}
                     watermarkUrl={watermarkImg.url}
                   />
                 )
@@ -256,7 +261,6 @@ export default function TimetablePreviewPage() {
                     periods={classData?.periods ?? []}
                     printRef={gridRef}
                     titleUrl={titleImg.url}
-                    monogramUrl={monogramImg.url}
                     watermarkUrl={watermarkImg.url}
                   />
                 )

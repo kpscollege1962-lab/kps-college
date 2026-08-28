@@ -1,5 +1,10 @@
 @media print {
 
+  /* Note: intentionally NOT setting @page { size: landscape } here — doing
+     so makes Chrome hide the Layout (Portrait/Landscape) dropdown in the
+     print dialog entirely, removing manual control. Leave orientation to
+     the person printing, via More settings → Layout. */
+
   /* ── Hide everything on the page by default ─────────────── */
   body:has(.timetable-print-target) * {
     visibility: hidden;
@@ -16,7 +21,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 190mm;
+    width: 100%;
     overflow: visible !important;
   }
 

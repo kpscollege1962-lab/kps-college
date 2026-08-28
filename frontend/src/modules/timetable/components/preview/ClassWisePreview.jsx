@@ -41,13 +41,13 @@ const TimingRow = ({ timing }) => {
   )
 }
 
-export default function ClassWisePreview({ periods, rows, printRef, titleUrl, monogramUrl, watermarkUrl }) {
+export default function ClassWisePreview({ periods, rows, printRef, titleUrl, watermarkUrl }) {
   return (
     <div ref={printRef} className="relative overflow-auto timetable-print-target">
       <PrintWatermark watermarkUrl={watermarkUrl} />
 
       <div className="relative z-10">
-        <PrintHeader titleUrl={titleUrl} monogramUrl={monogramUrl} />
+        <PrintHeader titleUrl={titleUrl} />
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">

@@ -1,25 +1,19 @@
 // Renders inside .timetable-print-target (above the table) so it is included
 // in the print output — anything outside that container is hidden by the
 // `body:has(.timetable-print-target) *` visibility:hidden rule in print CSS.
-export default function PrintHeader({ titleUrl, monogramUrl }) {
-  if (!titleUrl && !monogramUrl) return null
+// The uploaded title image is expected to already contain the school's
+// logo/monogram combined with its name (a banner), so it's scaled to the
+// full width of the timetable instead of a fixed small height.
+export default function PrintHeader({ titleUrl }) {
+  if (!titleUrl) return null
 
   return (
-    <div className="timetable-print-header flex items-center gap-3 mb-3 pb-2 border-b border-border">
-      {monogramUrl && (
-        <img
-          src={monogramUrl}
-          alt="Monogram"
-          className="h-12 w-12 object-contain shrink-0"
-        />
-      )}
-      {titleUrl && (
-        <img
-          src={titleUrl}
-          alt="Title"
-          className="h-10 max-w-[320px] object-contain shrink-0"
-        />
-      )}
+    <div className="timetable-print-header mb-3 pb-2 border-b border-border">
+      <img
+        src={titleUrl}
+        alt="Title"
+        className="w-full h-auto object-contain"
+      />
     </div>
   )
 }
