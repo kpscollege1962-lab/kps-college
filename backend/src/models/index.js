@@ -30,6 +30,11 @@ const defineTimetablePeriodTiming = require('./timetablePeriodTiming.model');
 const defineTimetableSlot         = require('./timetableSlot.model');
 const defineAttendanceSession      = require('./attendanceSession.model');
 const defineAttendanceRecord       = require('./attendanceRecord.model');
+const defineFeeHead        = require('./feeHead.model');
+const defineFeeStructure   = require('./feeStructure.model');
+const defineFeeChallan     = require('./feeChallan.model');
+const defineFeeChallanItem = require('./feeChallanItem.model');
+const defineFeePayment     = require('./feePayment.model');
 
 // ── Initialize models ─────────────────────────────────────────────────────────
 const User               = defineUser(sequelize);
@@ -61,6 +66,11 @@ const TimetablePeriodTiming = defineTimetablePeriodTiming(sequelize);
 const TimetableSlot         = defineTimetableSlot(sequelize);
 const AttendanceSession      = defineAttendanceSession(sequelize);
 const AttendanceRecord       = defineAttendanceRecord(sequelize);
+const FeeHead        = defineFeeHead(sequelize);
+const FeeStructure   = defineFeeStructure(sequelize);
+const FeeChallan     = defineFeeChallan(sequelize);
+const FeeChallanItem = defineFeeChallanItem(sequelize);
+const FeePayment     = defineFeePayment(sequelize);
 
 // ── Register & export ─────────────────────────────────────────────────────────
 const db = {
@@ -94,6 +104,11 @@ const db = {
   TimetableSlot,
   AttendanceSession,
   AttendanceRecord,
+  FeeHead,
+  FeeStructure,
+  FeeChallan,
+  FeeChallanItem,
+  FeePayment,
 };
 
 // ── Wire up associations (runs after all models are loaded) ───────────────────

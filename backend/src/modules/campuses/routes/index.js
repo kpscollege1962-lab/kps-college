@@ -40,4 +40,8 @@ router.use('/:campusId/class-teacher-assignments', require('../../class-teacher-
 router.use('/:campusId/attendance/reports', require('../../attendance/routes/attendanceReports.routes'));
 router.use('/:campusId/attendance',         require('../../attendance/routes/attendance.routes'));
 
+router.use('/:campusId/fee-heads',      require('../../fees/routes/feeHeads.routes'));
+router.use('/:campusId/fee-structures', require('../../fees/routes/feeStructures.routes'));
+router.use('/:campusId/fee-challans', require('../../fees/routes/feeChallans.routes'));
+router.use('/:campusId/fee-class-setup', require('../../fees/routes/classFeeAssignment.routes'));
 module.exports = router;

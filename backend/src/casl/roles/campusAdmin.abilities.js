@@ -6,4 +6,8 @@ module.exports = (can, _cannot) => {
   can('manage', 'ClassTeacherAssignment');
   can('manage', 'Attendance');
   can('manage', 'AttendanceReports');
+  can('manage', 'FeeHead');
+  can('manage', 'FeeStructure');
+  can('manage', 'FeeChallan');
+  can('manage', 'FeePayment');
 };

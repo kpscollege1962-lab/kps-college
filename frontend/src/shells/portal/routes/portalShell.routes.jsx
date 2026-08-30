@@ -17,6 +17,7 @@ import { classTeacherAssignmentRoutes } from '@/modules/class-teacher-assignment
 import { attendanceRoutes } from '@/modules/attendance/routes/attendance.routes'
 import NotFoundPage from '@/app/pages/NotFoundPage'
 import AbilityProvider from '@/casl/AbilityProvider'
+import { feeRoutes } from '@/modules/fees/routes/index'
 
 export const portalShellRoutes = {
   path: '/portal',
@@ -49,7 +50,8 @@ export const portalShellRoutes = {
             { path: 'timetable',           children: timetableRoutes },
             { path: 'class-teacher-assignments', children: classTeacherAssignmentRoutes },
             { path: 'attendance',           children: attendanceRoutes },
-            // Feature module routes will be added here as they are built
+            { path: 'fees',                 children: feeRoutes },
+// Feature module routes will be added here as they are built
             { path: '*', element: <NotFoundPage /> },
           ],
         },
