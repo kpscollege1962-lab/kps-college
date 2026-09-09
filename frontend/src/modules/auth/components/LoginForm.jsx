@@ -76,6 +76,14 @@ export default function LoginForm({ loading = false, errors = {}, errorMessage =
         </div>
       </div>
 
+      {/* Student link */}
+      <p className="text-center text-xs text-muted-foreground">
+        Student?{' '}
+        <Link to="/auth/student-login" className="text-foreground hover:underline">
+          Sign in here
+        </Link>
+      </p>
+
       {/* Non-field error */}
       {errorMessage && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3">

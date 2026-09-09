@@ -73,10 +73,10 @@ export default function TimetableGrid({
               />
             ))}
           </tr>
-          {/* Row 3 — Half Day timings (read-only derived display) */}
+          {/* Row 3 — Friday (half day) timings (read-only derived display) */}
           <tr>
             <th className="sticky left-0 z-30 bg-muted border border-border px-3 py-1 text-left min-w-[130px]">
-              <span className="text-[10px] text-muted-foreground font-medium">Half Day</span>
+              <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
             </th>
             {periods.map((period) => (
               <PeriodTimingCell

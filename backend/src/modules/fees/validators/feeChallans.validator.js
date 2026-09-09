@@ -21,6 +21,7 @@ const listRules = [
   query('search').optional().trim(),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('enrollmentId').optional().isInt({ min: 1 }).withMessage('enrollmentId must be a positive integer'),
 ];
 
 module.exports = { challanIdParamRules, generateRules, listRules };

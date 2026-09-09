@@ -17,12 +17,13 @@ const generateCtrl = async (req, res) => {
 
 const listCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
-  const { sessionId, classGroupId, sectionId, status, month, year, search, page, limit } = matchedData(req, { locations: ['query'] });
+  const { sessionId, classGroupId, sectionId, enrollmentId, status, month, year, search, page, limit } = matchedData(req, { locations: ['query'] });
   const result = await listChallans({
     campusId,
     sessionId: parseInt(sessionId),
     classGroupId: classGroupId ? parseInt(classGroupId) : undefined,
     sectionId: sectionId ? parseInt(sectionId) : undefined,
+    enrollmentId: enrollmentId ? parseInt(enrollmentId) : undefined,
     status, search,
     month: month ? parseInt(month) : undefined,
     year: year ? parseInt(year) : undefined,

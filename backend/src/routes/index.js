@@ -15,5 +15,6 @@ router.use('/students',    require('../modules/students/routes/students.routes')
 router.use('/enrollments', require('../modules/enrollments/routes/enrollments.routes'));
 router.use('/staff',       require('../modules/staff/routes/staff.routes'));
 router.use('/subjects',    require('../modules/subjects/routes/subjects.routes'));
+router.use('/me',          require('../modules/me/routes'));
 
 module.exports = router;

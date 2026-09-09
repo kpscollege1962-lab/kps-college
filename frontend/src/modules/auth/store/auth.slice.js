@@ -18,8 +18,9 @@ const authSlice = createSlice({
     refreshToken: null,
     isAuthenticated: false,
 
-    loginStatus:  { ...statusTemplate },
-    logoutStatus: { ...statusTemplate },
+    loginStatus:        { ...statusTemplate },
+    studentLoginStatus: { ...statusTemplate },
+    logoutStatus:        { ...statusTemplate },
   },
   reducers: {
     clearAuth(state) {

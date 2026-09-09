@@ -36,11 +36,12 @@ const getChallanById = async (challanId, campusId) => {
 };
 
 // ── List challans, filterable by class/section/status/period/student search ───
-const listChallans = async ({ campusId, sessionId, classGroupId, sectionId, status, month, year, search, page = 1, limit = 20 }) => {
+const listChallans = async ({ campusId, sessionId, classGroupId, sectionId, enrollmentId, status, month, year, search, page = 1, limit = 20 }) => {
   const where = { campus_id: campusId, session_id: sessionId };
-  if (status) where.status = status;
-  if (month)  where.month  = month;
-  if (year)   where.year   = year;
+  if (status)       where.status        = status;
+  if (month)         where.month         = month;
+  if (year)           where.year           = year;
+  if (enrollmentId) where.enrollment_id = enrollmentId;
 
   const enrollmentWhere = {};
   if (classGroupId) enrollmentWhere.class_group_id = classGroupId;
@@ -69,9 +70,11 @@ const listChallans = async ({ campusId, sessionId, classGroupId, sectionId, stat
           { model: Section, as: 'section' },
         ],
       },
+      { model: FeeChallanItem, as: 'items', include: [{ model: FeeHead, as: 'feeHead' }] },
+      { model: FeePayment, as: 'payments' },
     ],
     distinct: true,
-    order: [['due_date', 'ASC']],
+    order: [['year', 'DESC'], ['month', 'DESC']],
     limit,
     offset,
   });

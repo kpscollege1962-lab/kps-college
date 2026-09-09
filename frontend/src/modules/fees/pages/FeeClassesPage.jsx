@@ -9,8 +9,18 @@ import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useSessionContext } from '@/shells/portal/hooks/useSessionContext'
 import { useClasses } from '@/modules/classes/hooks/useClasses'
 import { useFeeClassStudents } from '../hooks/useFeeClassStudents'
+import { useFeeChallans } from '../hooks/useFeeChallans'
 import ClassFeeAssignmentModal from '../components/ClassFeeAssignmentModal'
 import FeeClassCard from '../components/FeeClassCard'
+import StudentChallanDialog from '../components/StudentChallanDialog'
+
+const STATUS_CONFIG = {
+  paid:      { label: 'Paid',      className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0' },
+  partial:   { label: 'Partial',   className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0' },
+  unpaid:    { label: 'Unpaid',    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0' },
+  overdue:   { label: 'Overdue',   className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0' },
+  cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground border-0' },
+}
 
 export default function FeeClassesPage() {
   const { activeRole }              = useRoleContext()
@@ -30,11 +40,30 @@ export default function FeeClassesPage() {
     clearSelection,
   } = useFeeClassStudents(campusId, sessionId)
 
+  const { challans, fetchChallans } = useFeeChallans(campusId)
+
   const [feeModalClass, setFeeModalClass] = useState(null)
+  const [challanDialogEnrollment, setChallanDialogEnrollment] = useState(null)
 
   useEffect(() => {
     if (campusId && sessionId) fetchClasses()
   }, [campusId, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch this month's challans for the selected class, to show status badges per student
+  useEffect(() => {
+    if (selectedClass && campusId && sessionId) {
+      const now = new Date()
+      fetchChallans({
+        sessionId,
+        classGroupId: selectedClass.id,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        limit: 100,
+      })
+    }
+  }, [selectedClass, campusId, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const challanByEnrollmentId = new Map(challans.map((c) => [c.enrollment_id, c]))
 
   // ── Detail view: students within a selected class ────────────────────────
   if (selectedClass) {
@@ -83,27 +112,51 @@ export default function FeeClassesPage() {
                   <th className="px-4 py-2.5 font-medium">Student</th>
                   <th className="px-4 py-2.5 font-medium">GR No</th>
                   <th className="px-4 py-2.5 font-medium">Section</th>
+                  <th className="px-4 py-2.5 font-medium">This Month</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {students.map((enr) => (
-                  <tr key={enr.id}>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                        {enr.class_no}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {enr.student?.full_name ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 font-mono">{enr.student?.gr_no ?? '—'}</td>
-                    <td className="px-4 py-3">{enr.section?.name ?? '—'}</td>
-                  </tr>
-                ))}
+                {students.map((enr) => {
+                  const challan = challanByEnrollmentId.get(enr.id)
+                  const config  = challan ? STATUS_CONFIG[challan.status] : null
+                  return (
+                    <tr
+                      key={enr.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setChallanDialogEnrollment(enr)}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                          {enr.class_no}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {enr.student?.full_name ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 font-mono">{enr.student?.gr_no ?? '—'}</td>
+                      <td className="px-4 py-3">{enr.section?.name ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {config
+                          ? <Badge className={config.className}>{config.label}</Badge>
+                          : <span className="text-xs text-muted-foreground">No challan</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
+
+        <StudentChallanDialog
+          open={!!challanDialogEnrollment}
+          onOpenChange={(open) => {
+            if (!open) setChallanDialogEnrollment(null)
+          }}
+          campusId={campusId}
+          sessionId={sessionId}
+          enrollment={challanDialogEnrollment}
+        />
       </div>
     )
   }

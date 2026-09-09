@@ -14,31 +14,19 @@ const toSeconds = (t) => {
   return h * 3600 + m * 60 + s
 }
 
-const TimingRow = ({ timing }) => {
-  const start = formatTimeShort(timing?.start_time)
-  const end   = formatTimeShort(timing?.end_time)
-
-  if (!start || !end) {
-    return (
-      <div className="text-[10px] text-muted-foreground font-normal">–</div>
-    )
-  }
-
+const formatDuration = (timing) => {
+  if (!timing?.start_time || !timing?.end_time) return '–'
   const totalMin = Math.round((toSeconds(timing.end_time) - toSeconds(timing.start_time)) / 60)
   const breakMin = (timing.break_duration ?? 0) > 0 ? timing.break_duration : null
   const instrMin = breakMin != null ? totalMin - breakMin : totalMin
+  return breakMin != null ? `${instrMin}|${breakMin}min` : `${instrMin}min`
+}
 
-  const durationDisplay = breakMin != null
-    ? `${instrMin}|${breakMin}min`
-    : `${instrMin}min`
-
-  return (
-    <div className="text-[10px] text-muted-foreground font-normal leading-tight">
-      <div>{start}</div>
-      <div>{end}</div>
-      <div>{durationDisplay}</div>
-    </div>
-  )
+const formatRange = (timing) => {
+  const start = formatTimeShort(timing?.start_time)
+  const end   = formatTimeShort(timing?.end_time)
+  if (!start || !end) return '–'
+  return `${start} – ${end}`
 }
 
 // Builds a "SUBJ1 / SUBJ2" label from whichever subject(s) are present on an
@@ -53,6 +41,18 @@ const buildSubjectLine = (entry) => {
   return parts.length > 0 ? parts.join(' / ') : null
 }
 
+// Staff-wise preview lists teachers formally — prefix every full name with
+// "Mr." (this campus's staff list is all-male). Names already shown as
+// initials elsewhere are left as-is.
+const withMr = (fullName) => (fullName ? `Mr. ${fullName}` : fullName)
+
+// Column widths for the two sticky left columns — the entity name column and
+// the Full Day/Friday/Interval label column right after it. Kept as plain
+// numbers (not Tailwind arbitrary values) so the label column's sticky
+// `left` offset reliably matches the name column's width.
+const NAME_COL_WIDTH  = 110
+const LABEL_COL_WIDTH = 68
+
 export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl }) {
   if (!staff || staff.length === 0) {
     return (
@@ -62,6 +62,9 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
     )
   }
 
+  // Note: seniority ordering (most senior first) is applied server-side by
+  // timetablePreview.service.js — this component just renders `staff` in
+  // whatever order it arrives in.
   const columns = periods && periods.length > 0
     ? periods.map((p) => ({ key: p.id, periodNumber: p.period_number, timings: p.timings }))
     : [...new Set(staff.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
@@ -77,22 +80,65 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
+            {/* Row 1 — entity column header (spans all 3 rows) + Full Day timings */}
             <tr>
-              <th className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left min-w-[95px] text-xs font-semibold">
+              <th
+                rowSpan={3}
+                style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left text-xs font-semibold align-top"
+              >
                 Staff
+              </th>
+              <th
+                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+              >
+                <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
+              </th>
+              {columns.map((col) => {
+                const fdTiming = col.timings?.find((t) => t.config === 'full_day')
+                return (
+                  <th key={col.key} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
+                    {formatRange(fdTiming)}
+                  </th>
+                )
+              })}
+              <th rowSpan={3} className="border border-border px-2 py-1.5 text-center font-semibold min-w-[48px]">
+                Total
+              </th>
+            </tr>
+            {/* Row 2 — Friday (half day) timings */}
+            <tr>
+              <th
+                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+              >
+                <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
+              </th>
+              {columns.map((col) => {
+                const hdTiming = col.timings?.find((t) => t.config === 'half_day')
+                return (
+                  <th key={col.key} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
+                    {formatRange(hdTiming)}
+                  </th>
+                )
+              })}
+            </tr>
+            {/* Row 3 — Interval / Duration */}
+            <tr>
+              <th
+                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+              >
+                <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
               </th>
               {columns.map((col) => {
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <th
-                    key={col.key}
-                    className="border border-border px-2 py-1.5 text-center font-semibold"
-                  >
-                    <div className="border-b border-border/50 pb-0.5 mb-0.5">
-                      <TimingRow timing={fdTiming} />
-                    </div>
-                    <TimingRow timing={hdTiming} />
+                  <th key={col.key} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal leading-tight">
+                    <div>{formatDuration(fdTiming)}</div>
+                    <div className="text-muted-foreground/70">{formatDuration(hdTiming)}</div>
                   </th>
                 )
               })}
@@ -102,17 +148,34 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
           <tbody>
             {staff.map((member) => (
               <tr key={member.id}>
-                <td className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs">
-                  <div className="font-medium text-foreground">{member.full_name}</div>
+                <td
+                  style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                  className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs align-top"
+                >
+                  <div className="font-medium text-foreground">{withMr(member.full_name)}</div>
                   {member.name_initials && (
                     <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
                   )}
                 </td>
+                {/* Filler cell — keeps column count aligned with the label column in
+                    the header; carries no content of its own for data rows. */}
+                <td
+                  style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                  className="sticky z-10 bg-muted border border-border"
+                />
 
                 {columns.map((col) => {
                   const entries = member.slots.filter((sl) => sl.periodNumber === col.periodNumber)
 
                   if (entries.length > 1) {
+                    // If every class in this period shares the same label (e.g. all
+                    // "DRILL"), it's one period-wide activity, not a separate thing
+                    // per class — show it once below the class list instead of
+                    // repeating it under each one.
+                    const sharedLabel = entries.every((e) => e.label && e.label === entries[0].label)
+                      ? entries[0].label
+                      : null
+
                     return (
                       <td key={col.key} className="border border-border p-1.5 align-top text-xs">
                         <div>
@@ -127,12 +190,20 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                                   {entry.classGroupName}
                                   {entry.sectionName && <span> · {entry.sectionName}</span>}
                                 </p>
+                                {entry.label && !sharedLabel && (
+                                  <p className="text-muted-foreground/80 leading-tight">{entry.label}</p>
+                                )}
                                 {entrySubjectLine && (
                                   <p className="text-muted-foreground/80 leading-tight">{entrySubjectLine}</p>
                                 )}
                               </div>
                             )
                           })}
+                          {sharedLabel && (
+                            <p className="text-muted-foreground/80 leading-tight border-t border-border/40 pt-0.5 mt-0.5">
+                              {sharedLabel}
+                            </p>
+                          )}
                         </div>
                       </td>
                     )
@@ -154,6 +225,9 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                         {slot.classGroupName}
                         {slot.sectionName && <span> · {slot.sectionName}</span>}
                       </p>
+                      {slot.label && (
+                        <p className="text-muted-foreground/80 leading-tight">{slot.label}</p>
+                      )}
                       {subjectLine && (
                         <p className="text-muted-foreground/80 leading-tight">{subjectLine}</p>
                       )}
@@ -190,6 +264,10 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                     </td>
                   )
                 })}
+
+                <td className="border border-border text-center text-xs font-semibold">
+                  {member.slots.length}
+                </td>
               </tr>
             ))}
           </tbody>

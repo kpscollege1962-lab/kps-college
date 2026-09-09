@@ -25,6 +25,7 @@
     "ioredis": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
+    "multer": "^2.3.0",
     "mysql2": "^3.19.1",
     "nodemailer": "^8.0.2",
     "nodemailer-express-handlebars": "^7.0.0",

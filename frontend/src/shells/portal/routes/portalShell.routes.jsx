@@ -18,7 +18,7 @@ import { attendanceRoutes } from '@/modules/attendance/routes/attendance.routes'
 import NotFoundPage from '@/app/pages/NotFoundPage'
 import AbilityProvider from '@/casl/AbilityProvider'
 import { feeRoutes } from '@/modules/fees/routes/index'
-
+import MyFeesPage from '@/modules/fees/pages/MyFeesPage'
 export const portalShellRoutes = {
   path: '/portal',
   element: <AuthGuard />,         // layer 1: must be logged in
@@ -51,7 +51,10 @@ export const portalShellRoutes = {
             { path: 'class-teacher-assignments', children: classTeacherAssignmentRoutes },
             { path: 'attendance',           children: attendanceRoutes },
             { path: 'fees',                 children: feeRoutes },
+            { path: 'fees',                 children: feeRoutes },
+            { path: 'my-fees',              element: <MyFeesPage /> },
 // Feature module routes will be added here as they are built
+
             { path: '*', element: <NotFoundPage /> },
           ],
         },

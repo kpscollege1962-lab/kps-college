@@ -1,6 +1,6 @@
 const {
   TimetablePeriod, TimetablePeriodTiming, TimetableSlot,
-  ClassGroup, Section, Subject, Staff,
+  ClassGroup, Section, Subject, Staff, StaffPosting,
 } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
 
@@ -91,25 +91,32 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
   const staffList = await Staff.findAll({
     attributes: ['id', 'full_name', 'name_initials'],
     include: [
+      // Included purely to sort by seniority below — earliest joining_date at
+      // this campus is treated as most senior. Not exposed in the response.
+      {
+        model: StaffPosting, as: 'postings',
+        required: false,
+        where: { campus_id: campusId },
+        attributes: ['joining_date'],
+      },
       {
         model: TimetableSlot,
         as: 'primaryTimetableSlots',
         required: false,
-        attributes: ['id', 'break_position'],
+        attributes: ['id', 'label', 'break_position'],
         include: nestedSlotIncludes(),
       },
       {
         model: TimetableSlot,
         as: 'secondaryTimetableSlots',
         required: false,
-        attributes: ['id', 'break_position'],
+        attributes: ['id', 'label', 'break_position'],
         include: nestedSlotIncludes(),
       },
     ],
-    order: [['full_name', 'ASC']],
   });
 
-  return staffList
+  const withSlots = staffList
     .map((staff) => {
       // Merge primary/secondary slot lists, dedupe by slot id — a staff member who
       // fills both roles for the same slot gets one entry with both subjects tagged.
@@ -125,6 +132,7 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
           periodNumber:   slot.period.period_number,
           classGroupName: slot.classGroup?.name ?? null,
           sectionName:    slot.section?.name ?? null,
+          label:          slot.label ?? null,
           subject1:       role === 'primary'   ? (slot.subject1 ?? null) : null,
           subject2:       role === 'secondary' ? (slot.subject2 ?? null) : null,
           breakPosition:  slot.break_position ?? null,
@@ -137,10 +145,25 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
         id:            staff.id,
         full_name:     staff.full_name,
         name_initials: staff.name_initials,
+        _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
         slots: [...bySlotId.values()].sort((a, b) => a.periodNumber - b.periodNumber),
       };
     })
     .filter((staff) => staff.slots.length > 0);
+
+  // Seniority order: earliest joining_date first (most senior at the top).
+  // Staff with no recorded joining_date are pushed to the bottom rather than
+  // sorted arbitrarily, then alphabetically among themselves as a tiebreaker.
+  withSlots.sort((a, b) => {
+    if (a._joiningDate && b._joiningDate) {
+      return new Date(a._joiningDate) - new Date(b._joiningDate);
+    }
+    if (a._joiningDate && !b._joiningDate) return -1;
+    if (!a._joiningDate && b._joiningDate) return 1;
+    return a.full_name.localeCompare(b.full_name);
+  });
+
+  return withSlots.map(({ _joiningDate, ...staff }) => staff);
 };
 
 // ── Subject-wise preview ─────────────────────────────────────────────────────────
