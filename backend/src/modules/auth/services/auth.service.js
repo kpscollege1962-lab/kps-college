@@ -50,12 +50,12 @@ const login = async ({ login, password }) => {
 };
 
 // ── Student Login ────────────────────────────────────────────────────────────
-// Credential = B-Form number (username) + DOB in DDMMYYYY (password).
+// Credential = GR Number (username) + DOB in DDMMYYYY (password).
 // First successful login lazily provisions the User account, links it to the
 // Student record, and grants a campus-scoped STUDENT role at whichever campus
 // the student is actively enrolled in for the school's current active session.
-const studentLogin = async ({ gr_no, dob }) => {
-  const student = await Student.findOne({ where: { gr_no: gr_no} });
+const studentLogin = async ({ grNo, dob }) => {
+  const student = await Student.findOne({ where: { gr_no: grNo } });
   if (!student) throw new ApiError(401, 'Invalid credentials');
   if (!student.date_of_birth) throw new ApiError(401, 'Invalid credentials');
 

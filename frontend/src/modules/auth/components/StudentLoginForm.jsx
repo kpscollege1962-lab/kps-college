@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export default function StudentLoginForm({ loading = false, errors = {}, errorMessage = null, onSubmit }) {
-  const [form, setForm] = useState({ gr_no: '', dob: '' })
+  const [form, setForm] = useState({ grNo: '', dob: '' })
 
   const { fieldErrors = {} } = errors
 
@@ -22,23 +22,22 @@ export default function StudentLoginForm({ loading = false, errors = {}, errorMe
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4" noValidate>
 
-      {/* B-Form No */}
+      {/* GR Number */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">GR-Number</label>
+        <label className="text-sm font-medium text-foreground">GR Number</label>
         <Input
-          name="gr_no"
-          value={form.gr_no}
+          name="grNo"
+          value={form.grNo}
           onChange={handleChange}
           autoComplete="username"
-          placeholder="e.g. 3310112345671"
+          placeholder="e.g. 1763-2"
           required
         />
-        {fieldErrors.bFormNo && (
-          <p className="text-xs text-destructive">{fieldErrors.bFormNo}</p>
+        {fieldErrors.grNo && (
+          <p className="text-xs text-destructive">{fieldErrors.grNo}</p>
         )}
       </div>
 
-      {/* Date of Birth */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Date of Birth</label>
         <Input
@@ -46,7 +45,7 @@ export default function StudentLoginForm({ loading = false, errors = {}, errorMe
           value={form.dob}
           onChange={handleChange}
           autoComplete="off"
-          placeholder="DDMMYYYY, e.g. 09012014"
+          placeholder="MMDDYYYY, e.g. 09012014"
           inputMode="numeric"
           maxLength={8}
           required

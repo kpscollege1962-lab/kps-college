@@ -12,8 +12,8 @@ const loginCtrl = async (req, res) => {
 
 // ── POST /auth/student-login ───────────────────────────────────────────────────
 const studentLoginCtrl = async (req, res) => {
-  const { gr_no, dob } = matchedData(req, { locations: ['body'] });
-  const { user, contexts, accessToken, refreshToken } = await studentLogin({ gr_no, dob });
+  const { grNo, dob } = matchedData(req, { locations: ['body'] });
+  const { user, contexts, accessToken, refreshToken } = await studentLogin({ grNo, dob });
   res.json(ApiResponse.success('Logged in successfully', { user, contexts, accessToken, refreshToken }));
 };
 
