@@ -23,15 +23,14 @@ export default function LoginForm({ loading = false, errors = {}, errorMessage =
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4" noValidate>
 
-      {/* Login */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">Email or Username</label>
+        <label className="text-sm font-medium text-foreground">Login ID</label>
         <Input
           name="login"
           value={form.login}
           onChange={handleChange}
           autoComplete="username"
-          placeholder="you@school.com"
+          placeholder="Email, Username, GR No, or CNIC"
           required
         />
         {fieldErrors.login && (
@@ -39,7 +38,6 @@ export default function LoginForm({ loading = false, errors = {}, errorMessage =
         )}
       </div>
 
-      {/* Password */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Password</label>
         <div className="relative">
@@ -49,7 +47,7 @@ export default function LoginForm({ loading = false, errors = {}, errorMessage =
             value={form.password}
             onChange={handleChange}
             autoComplete="current-password"
-            placeholder="••••••••"
+            placeholder="Password, or DOB as DDMMYYYY"
             className="pr-10"
             required
           />
@@ -76,15 +74,6 @@ export default function LoginForm({ loading = false, errors = {}, errorMessage =
         </div>
       </div>
 
-      {/* Student link */}
-      <p className="text-center text-xs text-muted-foreground">
-        Student?{' '}
-        <Link to="/auth/student-login" className="text-foreground hover:underline">
-          Sign in here
-        </Link>
-      </p>
-
-      {/* Non-field error */}
       {errorMessage && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3">
           <p className="text-sm text-destructive">{errorMessage}</p>

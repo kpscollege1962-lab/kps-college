@@ -1,30 +1,20 @@
 const { matchedData } = require('express-validator');
 const ApiResponse = require('../../../utils/ApiResponse');
-const { login, studentLogin } = require('../services/auth.service');
+const { login } = require('../services/auth.service');
 const { forgotPassword, resetPassword } = require('../services/passwordReset.service');
 
-// ── POST /auth/login ───────────────────────────────────────────────────────────
 const loginCtrl = async (req, res) => {
   const data = matchedData(req, { locations: ['body'] });
   const { user, contexts, accessToken, refreshToken } = await login(data);
   res.json(ApiResponse.success('Logged in successfully', { user, contexts, accessToken, refreshToken }));
 };
 
-// ── POST /auth/student-login ───────────────────────────────────────────────────
-const studentLoginCtrl = async (req, res) => {
-  const { grNo, dob } = matchedData(req, { locations: ['body'] });
-  const { user, contexts, accessToken, refreshToken } = await studentLogin({ grNo, dob });
-  res.json(ApiResponse.success('Logged in successfully', { user, contexts, accessToken, refreshToken }));
-};
-
-// ── POST /auth/forgot-password ────────────────────────────────────────────────
 const forgotPasswordCtrl = async (req, res) => {
   const { email } = matchedData(req, { locations: ['body'] });
   await forgotPassword({ email });
   res.json(ApiResponse.success('If that email is registered, a password reset link has been sent'));
 };
 
-// ── POST /auth/reset-password ─────────────────────────────────────────────────
 const resetPasswordCtrl = async (req, res) => {
   const data = matchedData(req, { locations: ['body'] });
   await resetPassword(data);
@@ -33,7 +23,6 @@ const resetPasswordCtrl = async (req, res) => {
 
 module.exports = {
   login: loginCtrl,
-  studentLogin: studentLoginCtrl,
   forgotPassword: forgotPasswordCtrl,
   resetPassword: resetPasswordCtrl,
 };
