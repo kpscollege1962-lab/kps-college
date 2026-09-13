@@ -29,10 +29,29 @@ const formatRange = (timing) => {
   return `${start} – ${end}`
 }
 
+const ordinalSuffix = (n) => {
+  const j = n % 10, k = n % 100
+  if (j === 1 && k !== 11) return 'st'
+  if (j === 2 && k !== 12) return 'nd'
+  if (j === 3 && k !== 13) return 'rd'
+  return 'th'
+}
+
+// Renders "7 EAGLE" as "7ᵗʰ E" — see the same helper in ClassWisePreview.jsx.
+const ClassLabel = ({ classGroupName, sectionName }) => {
+  const n = parseInt(classGroupName, 10)
+  const numberPart = Number.isNaN(n)
+    ? classGroupName
+    : <>{n}<sup className="text-[0.65em]">{ordinalSuffix(n)}</sup></>
+  const sectionAbbrev = sectionName ? sectionName.charAt(0).toUpperCase() : null
+  return <>{numberPart}{sectionAbbrev && <span className="ml-0.5">{sectionAbbrev}</span>}</>
+}
+
 // Builds a "SUBJ1 / SUBJ2" label from whichever subject(s) are present on an
 // entry. A staff member may be tagged as staff_id_1 (subject1 only),
-// staff_id_2 (subject2 only), or both (subject1 + subject2) — so this must
-// not assume subject1 is always populated.
+// staff_id_2 (subject2 only), or both (subject1 + subject2 — e.g. alternating
+// between two subjects on the same class/period) — so this must not assume
+// subject1 is always populated.
 const buildSubjectLine = (entry) => {
   if (!entry) return null
   const parts = [entry.subject1, entry.subject2]
@@ -46,12 +65,9 @@ const buildSubjectLine = (entry) => {
 // initials elsewhere are left as-is.
 const withMr = (fullName) => (fullName ? `Mr. ${fullName}` : fullName)
 
-// Column widths for the two sticky left columns — the entity name column and
-// the Full Day/Friday/Interval label column right after it. Kept as plain
-// numbers (not Tailwind arbitrary values) so the label column's sticky
-// `left` offset reliably matches the name column's width.
-const NAME_COL_WIDTH  = 110
-const LABEL_COL_WIDTH = 68
+const SERIAL_COL_WIDTH = 32
+const NAME_COL_WIDTH   = 110
+const LABEL_COL_WIDTH  = 68
 
 export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl }) {
   if (!staff || staff.length === 0) {
@@ -62,14 +78,20 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
     )
   }
 
-  // Note: seniority ordering (most senior first) is applied server-side by
-  // timetablePreview.service.js — this component just renders `staff` in
-  // whatever order it arrives in.
-  const columns = periods && periods.length > 0
-    ? periods.map((p) => ({ key: p.id, periodNumber: p.period_number, timings: p.timings }))
+  // The first period (by period_number) is Assembly — excluded from the main
+  // columns (same convention as Class-wise), its timing noted once above.
+  const sortedPeriods  = periods && periods.length > 0 ? [...periods].sort((a, b) => a.period_number - b.period_number) : []
+  const assemblyPeriod = sortedPeriods[0] ?? null
+  const teachingSourcePeriods = sortedPeriods.length > 0 ? sortedPeriods.slice(1) : []
+
+  const columns = teachingSourcePeriods.length > 0
+    ? teachingSourcePeriods.map((p) => ({ key: p.id, periodNumber: p.period_number, timings: p.timings }))
     : [...new Set(staff.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
         .sort((a, b) => a - b)
         .map((n) => ({ key: n, periodNumber: n, timings: null }))
+
+  const assemblyFd = assemblyPeriod?.timings?.find((t) => t.config === 'full_day')
+  const assemblyFr = assemblyPeriod?.timings?.find((t) => t.config === 'half_day')
 
   return (
     <div ref={printRef} className="relative overflow-auto timetable-print-target">
@@ -78,19 +100,44 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
       <div className="relative z-10">
         <PrintHeader titleUrl={titleUrl} />
 
+        {assemblyPeriod && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})
+          </p>
+        )}
+
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
-            {/* Row 1 — entity column header (spans all 3 rows) + Full Day timings */}
+            {/* Row 1 — S.No / Staff headers (span all 4 rows) + period labels */}
             <tr>
               <th
-                rowSpan={3}
-                style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
-                className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left text-xs font-semibold align-top"
+                rowSpan={4}
+                style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
+                className="sticky left-0 z-20 bg-muted border border-border px-1.5 py-1.5 text-center text-xs font-semibold align-top"
+              >
+                #
+              </th>
+              <th
+                rowSpan={4}
+                style={{ left: SERIAL_COL_WIDTH, width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border px-3 py-1.5 text-left text-xs font-semibold align-top"
               >
                 Staff
               </th>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border"
+              />
+              {columns.map((col) => (
+                <th key={col.key} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
+                  P{col.periodNumber}
+                </th>
+              ))}
+            </tr>
+            {/* Row 2 — Full Day start times (chained) */}
+            <tr>
+              <th
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
@@ -99,18 +146,15 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
                 return (
                   <th key={col.key} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
-                    {formatRange(fdTiming)}
+                    {formatTimeShort(fdTiming?.start_time) ?? '–'}
                   </th>
                 )
               })}
-              <th rowSpan={3} className="border border-border px-2 py-1.5 text-center font-semibold min-w-[48px]">
-                Total
-              </th>
             </tr>
-            {/* Row 2 — Friday (half day) timings */}
+            {/* Row 3 — Friday start times */}
             <tr>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
@@ -119,15 +163,15 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
                   <th key={col.key} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
-                    {formatRange(hdTiming)}
+                    {formatTimeShort(hdTiming?.start_time) ?? '–'}
                   </th>
                 )
               })}
             </tr>
-            {/* Row 3 — Interval / Duration */}
+            {/* Row 4 — Interval / Duration */}
             <tr>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
@@ -136,9 +180,11 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <th key={col.key} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal leading-tight">
-                    <div>{formatDuration(fdTiming)}</div>
-                    <div className="text-muted-foreground/70">{formatDuration(hdTiming)}</div>
+                  <th className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>{formatDuration(fdTiming)}</span>
+                      <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
+                    </div>
                   </th>
                 )
               })}
@@ -146,32 +192,38 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
           </thead>
 
           <tbody>
-            {staff.map((member) => (
+            {staff.map((member, idx) => (
               <tr key={member.id}>
                 <td
-                  style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
-                  className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs align-top"
+                  style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
+                  className="sticky left-0 z-10 bg-muted border border-border px-1.5 py-2 text-center text-xs align-top"
+                >
+                  {idx + 1}
+                </td>
+                <td
+                  style={{ left: SERIAL_COL_WIDTH, width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                  className="sticky z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs align-top"
                 >
                   <div className="font-medium text-foreground">{withMr(member.full_name)}</div>
                   {member.name_initials && (
                     <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
                   )}
                 </td>
-                {/* Filler cell — keeps column count aligned with the label column in
-                    the header; carries no content of its own for data rows. */}
+                {/* Total periods for this staff member — lives in the label column */}
                 <td
-                  style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                  className="sticky z-10 bg-muted border border-border"
-                />
+                  style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                  className="sticky z-10 bg-muted border border-border text-center text-xs font-semibold"
+                >
+                  {member.slots.length}
+                </td>
 
                 {columns.map((col) => {
                   const entries = member.slots.filter((sl) => sl.periodNumber === col.periodNumber)
 
                   if (entries.length > 1) {
                     // If every class in this period shares the same label (e.g. all
-                    // "DRILL"), it's one period-wide activity, not a separate thing
-                    // per class — show it once below the class list instead of
-                    // repeating it under each one.
+                    // "DRILL"), it's one period-wide activity — show it once below
+                    // the class list instead of repeating it under each one.
                     const sharedLabel = entries.every((e) => e.label && e.label === entries[0].label)
                       ? entries[0].label
                       : null
@@ -187,8 +239,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                                 className={i > 0 ? 'border-t border-border/40 py-0.5' : 'py-0.5'}
                               >
                                 <p className="font-medium text-foreground leading-tight">
-                                  {entry.classGroupName}
-                                  {entry.sectionName && <span> · {entry.sectionName}</span>}
+                                  <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
                                 </p>
                                 {entry.label && !sharedLabel && (
                                   <p className="text-muted-foreground/80 leading-tight">{entry.label}</p>
@@ -222,8 +273,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                   const contentNode = slot ? (
                     <div className="space-y-0.5">
                       <p className="font-medium text-foreground leading-tight">
-                        {slot.classGroupName}
-                        {slot.sectionName && <span> · {slot.sectionName}</span>}
+                        <ClassLabel classGroupName={slot.classGroupName} sectionName={slot.sectionName} />
                       </p>
                       {slot.label && (
                         <p className="text-muted-foreground/80 leading-tight">{slot.label}</p>
@@ -264,10 +314,6 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                     </td>
                   )
                 })}
-
-                <td className="border border-border text-center text-xs font-semibold">
-                  {member.slots.length}
-                </td>
               </tr>
             ))}
           </tbody>

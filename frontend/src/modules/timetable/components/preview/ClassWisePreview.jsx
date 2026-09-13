@@ -22,6 +22,8 @@ const formatDuration = (timing) => {
   return breakMin != null ? `${instrMin}|${breakMin}min` : `${instrMin}min`
 }
 
+// Full range, used only for the one-off Assembly note (it has no adjacent
+// column to imply its end time the way the main grid's periods do).
 const formatRange = (timing) => {
   const start = formatTimeShort(timing?.start_time)
   const end   = formatTimeShort(timing?.end_time)
@@ -29,14 +31,43 @@ const formatRange = (timing) => {
   return `${start} – ${end}`
 }
 
-// Column widths for the two sticky left columns — the entity name column and
-// the Full Day/Friday/Interval label column right after it. Kept as plain
-// numbers (not Tailwind arbitrary values) so the label column's sticky
-// `left` offset reliably matches the name column's width.
-const NAME_COL_WIDTH  = 110
-const LABEL_COL_WIDTH = 68
+const ordinalSuffix = (n) => {
+  const j = n % 10, k = n % 100
+  if (j === 1 && k !== 11) return 'st'
+  if (j === 2 && k !== 12) return 'nd'
+  if (j === 3 && k !== 13) return 'rd'
+  return 'th'
+}
+
+// Renders "7 EAGLE" as "7ᵗʰ E" — ordinal class number with a superscript
+// suffix, plus the section name abbreviated to its first letter.
+// Assumption: first-letter abbreviation (Eagle→E, Falcon→F). If two class
+// names ever share a first letter, this will collide — worth a custom
+// abbreviation map at that point instead of first-letter-only.
+const ClassLabel = ({ classGroupName, sectionName }) => {
+  const n = parseInt(classGroupName, 10)
+  const numberPart = Number.isNaN(n)
+    ? classGroupName
+    : <>{n}<sup className="text-[0.65em]">{ordinalSuffix(n)}</sup></>
+  const sectionAbbrev = sectionName ? sectionName.charAt(0).toUpperCase() : null
+  return <>{numberPart}{sectionAbbrev && <span className="ml-0.5">{sectionAbbrev}</span>}</>
+}
+
+const SERIAL_COL_WIDTH = 32
+const NAME_COL_WIDTH   = 78
+const LABEL_COL_WIDTH  = 68
 
 export default function ClassWisePreview({ periods, rows, printRef, titleUrl, watermarkUrl }) {
+  // The first period (by period_number) is Assembly — every class shows "—"
+  // for it, so instead of a whole column of dashes, its timing is mentioned
+  // once in a note above the table and it's excluded from the main columns.
+  const sortedPeriods    = [...periods].sort((a, b) => a.period_number - b.period_number)
+  const assemblyPeriod   = sortedPeriods[0] ?? null
+  const teachingPeriods  = sortedPeriods.slice(1)
+
+  const assemblyFd = assemblyPeriod?.timings?.find((t) => t.config === 'full_day')
+  const assemblyFr = assemblyPeriod?.timings?.find((t) => t.config === 'half_day')
+
   return (
     <div ref={printRef} className="relative overflow-auto timetable-print-target">
       <PrintWatermark watermarkUrl={watermarkUrl} />
@@ -44,67 +75,91 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
       <div className="relative z-10">
         <PrintHeader titleUrl={titleUrl} />
 
+        {assemblyPeriod && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})
+          </p>
+        )}
+
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
-            {/* Row 1 — entity column header (spans all 3 rows) + Full Day timings */}
+            {/* Row 1 — S.No / Class / Section headers (span all 4 rows) + period labels */}
             <tr>
               <th
-                rowSpan={3}
-                style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
-                className="sticky left-0 z-20 bg-muted border border-border px-3 py-1.5 text-left text-xs font-semibold align-top"
+                rowSpan={4}
+                style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
+                className="sticky left-0 z-20 bg-muted border border-border px-1.5 py-1.5 text-center text-xs font-semibold align-top"
+              >
+                #
+              </th>
+              <th
+                rowSpan={4}
+                style={{ left: SERIAL_COL_WIDTH, width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border px-3 py-1.5 text-left text-xs font-semibold align-top"
               >
                 Class / Section
               </th>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                className="sticky z-20 bg-muted border border-border"
+              />
+              {teachingPeriods.map((period) => (
+                <th key={period.id} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
+                  P{period.period_number}
+                </th>
+              ))}
+            </tr>
+            {/* Row 2 — Full Day start times (chained: this column's value is also the previous period's end) */}
+            <tr>
+              <th
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
               </th>
-              {periods.map((period) => {
+              {teachingPeriods.map((period) => {
                 const fdTiming = period.timings?.find((t) => t.config === 'full_day')
                 return (
                   <th key={period.id} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
-                    {formatRange(fdTiming)}
+                    {formatTimeShort(fdTiming?.start_time) ?? '–'}
                   </th>
                 )
               })}
-              <th rowSpan={3} className="border border-border px-2 py-1.5 text-center font-semibold min-w-[48px]">
-                Total
-              </th>
             </tr>
-            {/* Row 2 — Friday (half day) timings */}
+            {/* Row 3 — Friday start times */}
             <tr>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
               </th>
-              {periods.map((period) => {
+              {teachingPeriods.map((period) => {
                 const hdTiming = period.timings?.find((t) => t.config === 'half_day')
                 return (
                   <th key={period.id} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
-                    {formatRange(hdTiming)}
+                    {formatTimeShort(hdTiming?.start_time) ?? '–'}
                   </th>
                 )
               })}
             </tr>
-            {/* Row 3 — Interval / Duration */}
+            {/* Row 4 — Interval / Duration */}
             <tr>
               <th
-                style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
               </th>
-              {periods.map((period) => {
+              {teachingPeriods.map((period) => {
                 const fdTiming = period.timings?.find((t) => t.config === 'full_day')
                 const hdTiming = period.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <th key={period.id} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal leading-tight">
-                    <div>{formatDuration(fdTiming)}</div>
-                    <div className="text-muted-foreground/70">{formatDuration(hdTiming)}</div>
+                  <th className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>{formatDuration(fdTiming)}</span>
+                      <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
+                    </div>
                   </th>
                 )
               })}
@@ -112,8 +167,8 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
           </thead>
 
           <tbody>
-            {rows.map((row) => {
-              const rowSlotCount = periods.filter((period) => {
+            {rows.map((row, idx) => {
+              const rowSlotCount = teachingPeriods.filter((period) => {
                 const slot = period.slots?.find(
                   (s) => s.class_group_id === row.classGroupId && s.section_id === row.sectionId,
                 )
@@ -123,22 +178,26 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
               return (
                 <tr key={`${row.classGroupId}-${row.sectionId}`}>
                   <td
-                    style={{ width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
-                    className="sticky left-0 z-10 bg-muted border border-border px-3 py-2 font-medium whitespace-nowrap text-xs align-top"
+                    style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
+                    className="sticky left-0 z-10 bg-muted border border-border px-1.5 py-2 text-center text-xs align-top"
                   >
-                    {row.classGroupName}
-                    {row.sectionName && (
-                      <span className="text-muted-foreground ml-1 font-normal">{row.sectionName}</span>
-                    )}
+                    {idx + 1}
                   </td>
-                  {/* Filler cell — keeps column count aligned with the label column in
-                      the header; carries no content of its own for data rows. */}
                   <td
-                    style={{ left: NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                    className="sticky z-10 bg-muted border border-border"
-                  />
+                    style={{ left: SERIAL_COL_WIDTH, width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
+                    className="sticky z-10 bg-muted border border-border px-3 py-2 font-medium whitespace-nowrap text-xs align-top"
+                  >
+                    <ClassLabel classGroupName={row.classGroupName} sectionName={row.sectionName} />
+                  </td>
+                  {/* Total periods for this row — lives in the previously-blank label column */}
+                  <td
+                    style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
+                    className="sticky z-10 bg-muted border border-border text-center text-xs font-semibold"
+                  >
+                    {rowSlotCount}
+                  </td>
 
-                  {periods.map((period) => {
+                  {teachingPeriods.map((period) => {
                     const slot = period.slots?.find(
                       (s) => s.class_group_id === row.classGroupId && s.section_id === row.sectionId,
                     ) ?? null
@@ -208,17 +267,13 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                       </td>
                     )
                   })}
-
-                  <td className="border border-border text-center text-xs font-semibold">
-                    {rowSlotCount}
-                  </td>
                 </tr>
               )
             })}
 
             {rows.length === 0 && (
               <tr>
-                <td colSpan={periods.length + 3} className="text-center py-12 text-muted-foreground italic text-sm">
+                <td colSpan={teachingPeriods.length + 3} className="text-center py-12 text-muted-foreground italic text-sm">
                   No classes found for the selected session.
                 </td>
               </tr>

@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const {
   TimetablePeriod, TimetablePeriodTiming, TimetableSlot,
   ClassGroup, Section, Subject, Staff, StaffPosting,
@@ -62,102 +63,110 @@ const getClassWisePreview = async ({ campusId, sessionId }) => {
 };
 
 // ── Staff-wise preview ───────────────────────────────────────────────────────────
+// Rewritten to query TimetableSlot directly rather than through Staff's
+// primaryTimetableSlots/secondaryTimetableSlots associations. That matters for
+// "alternating subject" slots — one physical slot with staff_id_1 === staff_id_2
+// (the same teacher covering two subjects on the same class/period, alternating
+// week to week) — because processing slot-first, and setting subject1/subject2
+// independently on the SAME merged entry, guarantees both land together
+// regardless of how Sequelize's two separate hasMany associations behave when
+// they both resolve to the identical staff+slot pair.
 
 const getStaffWisePreview = async ({ campusId, sessionId }) => {
   if (!sessionId) {
     throw new ApiError(422, 'Session is required to view the timetable preview');
   }
 
-  // A fresh array per call — see the comment on slotIncludeForSubject() below for why
-  // the same include array instance cannot be shared across sibling includes.
-  const nestedSlotIncludes = () => [
-    {
-      model: TimetablePeriod, as: 'period',
-      required: true,
-      where: { campus_id: campusId },
-      attributes: ['id', 'period_number'],
-    },
-    {
-      model: ClassGroup, as: 'classGroup',
-      required: true,
-      where: { session_id: sessionId },
-      attributes: ['id', 'name'],
-    },
-    { model: Section, as: 'section', attributes: ['id', 'name'] },
-    { model: Subject, as: 'subject1', attributes: ['id', 'name', 'name_initials'] },
-    { model: Subject, as: 'subject2', attributes: ['id', 'name', 'name_initials'] },
-  ];
-
   const staffList = await Staff.findAll({
     attributes: ['id', 'full_name', 'name_initials'],
     include: [
-      // Included purely to sort by seniority below — earliest joining_date at
-      // this campus is treated as most senior. Not exposed in the response.
+      // Purely for seniority sorting below — not exposed in the response.
       {
         model: StaffPosting, as: 'postings',
         required: false,
         where: { campus_id: campusId },
         attributes: ['joining_date'],
       },
+    ],
+    order: [['full_name', 'ASC']], // stable base order; seniority re-sort applied below
+  });
+
+  const slots = await TimetableSlot.findAll({
+    where: {
+      [Op.or]: [
+        { staff_id_1: { [Op.ne]: null } },
+        { staff_id_2: { [Op.ne]: null } },
+      ],
+    },
+    attributes: ['id', 'label', 'break_position', 'staff_id_1', 'staff_id_2'],
+    include: [
       {
-        model: TimetableSlot,
-        as: 'primaryTimetableSlots',
-        required: false,
-        attributes: ['id', 'label', 'break_position'],
-        include: nestedSlotIncludes(),
+        model: TimetablePeriod, as: 'period',
+        required: true,
+        where: { campus_id: campusId },
+        attributes: ['id', 'period_number'],
       },
       {
-        model: TimetableSlot,
-        as: 'secondaryTimetableSlots',
-        required: false,
-        attributes: ['id', 'label', 'break_position'],
-        include: nestedSlotIncludes(),
+        model: ClassGroup, as: 'classGroup',
+        required: true,
+        where: { session_id: sessionId },
+        attributes: ['id', 'name'],
       },
+      { model: Section, as: 'section', attributes: ['id', 'name'] },
+      { model: Subject, as: 'subject1', attributes: ['id', 'name', 'name_initials'] },
+      { model: Subject, as: 'subject2', attributes: ['id', 'name', 'name_initials'] },
     ],
   });
 
-  const withSlots = staffList
-    .map((staff) => {
-      // Merge primary/secondary slot lists, dedupe by slot id — a staff member who
-      // fills both roles for the same slot gets one entry with both subjects tagged.
-      const bySlotId = new Map();
-      const upsertEntry = (slot, role) => {
-        const existing = bySlotId.get(slot.id);
-        if (existing) {
-          if (role === 'primary')   existing.subject1 = slot.subject1 ?? null;
-          else                      existing.subject2 = slot.subject2 ?? null;
-          return;
-        }
-        bySlotId.set(slot.id, {
-          periodNumber:   slot.period.period_number,
-          classGroupName: slot.classGroup?.name ?? null,
-          sectionName:    slot.section?.name ?? null,
-          label:          slot.label ?? null,
-          subject1:       role === 'primary'   ? (slot.subject1 ?? null) : null,
-          subject2:       role === 'secondary' ? (slot.subject2 ?? null) : null,
-          breakPosition:  slot.break_position ?? null,
-        });
-      };
-      for (const slot of (staff.primaryTimetableSlots ?? []))   upsertEntry(slot, 'primary');
-      for (const slot of (staff.secondaryTimetableSlots ?? [])) upsertEntry(slot, 'secondary');
+  // staffId -> Map(slotId -> merged entry)
+  const bySlotByStaff = new Map();
+  const getEntryMap = (staffId) => {
+    if (!bySlotByStaff.has(staffId)) bySlotByStaff.set(staffId, new Map());
+    return bySlotByStaff.get(staffId);
+  };
 
-      return {
-        id:            staff.id,
-        full_name:     staff.full_name,
-        name_initials: staff.name_initials,
-        _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
-        slots: [...bySlotId.values()].sort((a, b) => a.periodNumber - b.periodNumber),
-      };
-    })
-    .filter((staff) => staff.slots.length > 0);
+  for (const slot of slots) {
+    const base = {
+      periodNumber:   slot.period.period_number,
+      classGroupName: slot.classGroup?.name ?? null,
+      sectionName:    slot.section?.name ?? null,
+      label:          slot.label ?? null,
+      breakPosition:  slot.break_position ?? null,
+    };
+
+    if (slot.staff_id_1 != null) {
+      const entryMap = getEntryMap(slot.staff_id_1);
+      const existing = entryMap.get(slot.id);
+      if (existing) existing.subject1 = slot.subject1 ?? null;
+      else entryMap.set(slot.id, { ...base, subject1: slot.subject1 ?? null, subject2: null });
+    }
+    if (slot.staff_id_2 != null) {
+      const entryMap = getEntryMap(slot.staff_id_2);
+      const existing = entryMap.get(slot.id);
+      if (existing) existing.subject2 = slot.subject2 ?? null;
+      else entryMap.set(slot.id, { ...base, subject1: null, subject2: slot.subject2 ?? null });
+    }
+  }
+
+  const withSlots = staffList.map((staff) => {
+    const entryMap = bySlotByStaff.get(staff.id) ?? new Map();
+    return {
+      id:            staff.id,
+      full_name:     staff.full_name,
+      name_initials: staff.name_initials,
+      _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
+      slots: [...entryMap.values()].sort((a, b) => a.periodNumber - b.periodNumber),
+    };
+  });
+  // Note: staff with zero periods are now KEPT (not filtered out) — see the
+  // "empty row" request: an admin should be able to see who has nothing
+  // assigned, not just who does.
 
   // Seniority order: earliest joining_date first (most senior at the top).
-  // Staff with no recorded joining_date are pushed to the bottom rather than
-  // sorted arbitrarily, then alphabetically among themselves as a tiebreaker.
+  // Staff with no recorded joining_date sort last, then alphabetically among
+  // themselves as a tiebreaker.
   withSlots.sort((a, b) => {
-    if (a._joiningDate && b._joiningDate) {
-      return new Date(a._joiningDate) - new Date(b._joiningDate);
-    }
+    if (a._joiningDate && b._joiningDate) return new Date(a._joiningDate) - new Date(b._joiningDate);
     if (a._joiningDate && !b._joiningDate) return -1;
     if (!a._joiningDate && b._joiningDate) return 1;
     return a.full_name.localeCompare(b.full_name);
@@ -173,10 +182,6 @@ const getSubjectWisePreview = async ({ campusId, sessionId }) => {
     throw new ApiError(422, 'Session is required to view the timetable preview');
   }
 
-  // A fresh array of include objects per call — Sequelize mutates include
-  // objects in place (e.g. to set join aliases), so the same array instance
-  // cannot be reused across two sibling includes (primarySlots/secondarySlots)
-  // without one clobbering the other's alias.
   const slotIncludeForSubject = () => [
     {
       model: TimetablePeriod, as: 'period',
