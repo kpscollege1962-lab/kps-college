@@ -24,13 +24,21 @@ const isConcurrentExemptLabel = (label) =>
   !!label && CONCURRENT_EXEMPT_LABELS.includes(label.trim().toUpperCase());
 
 // ── Staff period conflict check ────────────────────────────────────────────────
-// A staff member can only appear in one slot per period (across all class groups/sections).
+// A staff member can only appear in one slot per period (across all class groups/sections) —
+// UNLESS both the slot being written and the conflicting slot are "alternate" slots
+// (staff_id_1 AND staff_id_2 both populated on the row). An alternate slot splits its
+// period's clock time in half between two teachers (e.g. a 40-minute period becomes two
+// 20-minute halves), so each teacher assigned that way is only actually occupied for half
+// the period — meaning the same teacher can legitimately be part of a second alternate
+// slot elsewhere in that same period, covering the other half of their time. This
+// exemption only applies when BOTH slots are alternate; a teacher who is the sole staff
+// member on a slot (staff_id_2 null) still occupies the full period and stays blocked.
 
 // excludePositions: [{ classGroupId, sectionId }, ...] — one or more positions to
 // exclude from the conflict search. A swap excludes BOTH the source and destination
 // positions when they share the same period, since the staff member's own pre-swap
 // row may still physically occupy the other position until the transaction commits.
-const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, excludePositions }) => {
+const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, excludePositions, isAlternate }) => {
   if (isConcurrentExemptLabel(label)) return; // PT/DRILL — exempt regardless of staff
 
   const posting = await StaffPosting.findOne({
@@ -52,12 +60,16 @@ const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, ex
     ],
   });
 
-  if (conflict) {
-    const where = conflict.classGroup
-      ? ` (${conflict.classGroup.name}${conflict.section?.name ? ` ${conflict.section.name}` : ''})`
-      : ''
-    throw new ApiError(409, `This Staff is already assigned to period${where}`)
-  }
+  if (!conflict) return;
+
+  // Alternate-class exemption — see comment above.
+  const conflictIsAlternate = conflict.staff_id_1 != null && conflict.staff_id_2 != null;
+  if (isAlternate && conflictIsAlternate) return;
+
+  const where = conflict.classGroup
+    ? ` (${conflict.classGroup.name}${conflict.section?.name ? ` ${conflict.section.name}` : ''})`
+    : ''
+  throw new ApiError(409, `This Staff is already assigned to period${where}`)
 };
 
 // ── Upsert slot ────────────────────────────────────────────────────────────────
@@ -65,24 +77,28 @@ const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, ex
 const upsertSlot = async ({ campusId, classGroupId, sectionId, periodId, label, subjectId1, subjectId2, staffId1, staffId2, breakPosition }) => {
   await findPeriodOrFail({ periodId, campusId });
 
-  // Resolve the label this slot will actually carry after this write — the
-  // incoming value if one was given, otherwise whatever the slot already has —
-  // since the conflict-check exemption must reflect the slot's real content,
-  // not just what happens to be in this particular request payload.
+  // Resolve the label and staff fields this slot will actually carry after this
+  // write — the incoming value if one was given, otherwise whatever the slot
+  // already has — since both the exemption-by-label check and the
+  // alternate-slot check must reflect the slot's real resulting content, not
+  // just what happens to be in this particular request payload.
   const existingSlot = await TimetableSlot.findOne({
     where: { period_id: periodId, class_group_id: classGroupId, section_id: sectionId },
   });
-  const effectiveLabel = label !== undefined ? label : (existingSlot?.label ?? null);
+  const effectiveLabel    = label     !== undefined ? label     : (existingSlot?.label      ?? null);
+  const effectiveStaffId1 = staffId1  !== undefined ? staffId1  : (existingSlot?.staff_id_1  ?? null);
+  const effectiveStaffId2 = staffId2  !== undefined ? staffId2  : (existingSlot?.staff_id_2  ?? null);
+  const isAlternate = effectiveStaffId1 != null && effectiveStaffId2 != null;
 
   if (staffId1 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId1, periodId, campusId, label: effectiveLabel,
+      staffId: staffId1, periodId, campusId, label: effectiveLabel, isAlternate,
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
   if (staffId2 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId2, periodId, campusId, label: effectiveLabel,
+      staffId: staffId2, periodId, campusId, label: effectiveLabel, isAlternate,
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
@@ -162,6 +178,8 @@ const swapSlots = async ({
     content.subject_id_2 === null &&
     content.staff_id_1   === null &&
     content.staff_id_2   === null;
+  const isAlternateContent = (content) =>
+    content.staff_id_1 != null && content.staff_id_2 != null;
   const result = await sequelize.transaction(async (t) => {
     const [recordA, recordB] = await Promise.all([
       TimetableSlot.findOne({
@@ -178,14 +196,19 @@ const swapSlots = async ({
     // Staff conflict checks — each staff member's NEW placement is checked against
     // its own DESTINATION period, not a shared one. B's staff moves into A's period;
     // A's staff moves into B's period. Each check uses the LABEL that's moving along
-    // with that content, so a PT/DRILL slot swapped into a new period stays exempt.
+    // with that content, so a PT/DRILL slot swapped into a new period stays exempt —
+    // and the ALTERNATE flag that's moving with it, so an alternate slot swapped into
+    // a new period still allows the same-teacher-twice exemption there.
     // Exclude BOTH slot positions from each check. This matters specifically when
     // slotA.periodId === slotB.periodId — the staff member's own pre-swap row may still
     // be sitting at the *other* slot's position (not yet overwritten) when this check
     // runs, and that row must not be mistaken for a genuine conflict.
+    const contentBIsAlternate = isAlternateContent(contentB);
+    const contentAIsAlternate = isAlternateContent(contentA);
     if (contentB.staff_id_1 != null) {
       await checkStaffPeriodConflict({
         staffId: contentB.staff_id_1, periodId: slotA.periodId, campusId, label: contentB.label,
+        isAlternate: contentBIsAlternate,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -195,6 +218,7 @@ const swapSlots = async ({
     if (contentB.staff_id_2 != null) {
       await checkStaffPeriodConflict({
         staffId: contentB.staff_id_2, periodId: slotA.periodId, campusId, label: contentB.label,
+        isAlternate: contentBIsAlternate,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -204,6 +228,7 @@ const swapSlots = async ({
     if (contentA.staff_id_1 != null) {
       await checkStaffPeriodConflict({
         staffId: contentA.staff_id_1, periodId: slotB.periodId, campusId, label: contentA.label,
+        isAlternate: contentAIsAlternate,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -213,6 +238,7 @@ const swapSlots = async ({
     if (contentA.staff_id_2 != null) {
       await checkStaffPeriodConflict({
         staffId: contentA.staff_id_2, periodId: slotB.periodId, campusId, label: contentA.label,
+        isAlternate: contentAIsAlternate,
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },

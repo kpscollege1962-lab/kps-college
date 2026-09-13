@@ -205,12 +205,12 @@ const getSubjectWisePreview = async ({ campusId, sessionId }) => {
     include: [
       {
         model: TimetableSlot, as: 'primarySlots',
-        attributes: ['id'],
+        attributes: ['id', 'break_position'],
         include: slotIncludeForSubject(),
       },
       {
         model: TimetableSlot, as: 'secondarySlots',
-        attributes: ['id'],
+        attributes: ['id', 'break_position'],
         include: slotIncludeForSubject(),
       },
     ],
@@ -222,6 +222,7 @@ const getSubjectWisePreview = async ({ campusId, sessionId }) => {
     classGroupName: slot.classGroup?.name ?? null,
     sectionName:    slot.section?.name ?? null,
     staff:          slot[staffKey] ?? null,
+    breakPosition:  slot.break_position ?? null,
   });
 
   return subjects
