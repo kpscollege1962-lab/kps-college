@@ -80,11 +80,17 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
   const staffList = await Staff.findAll({
     attributes: ['id', 'full_name', 'name_initials'],
     include: [
-      // Purely for seniority sorting below — not exposed in the response.
+      // Restricts to staff actually postable/eligible for this campus's
+      // timetable — same filter as getTimetableStaff (used for the slot
+      // dropdowns), so Staff-wise preview only lists people who could
+      // legitimately have periods assigned, not every staff record in the
+      // system. required: true turns this into an inner join, so staff
+      // without a matching (active, timetable-eligible) posting at this
+      // campus are excluded entirely rather than appearing as empty rows.
       {
         model: StaffPosting, as: 'postings',
-        required: false,
-        where: { campus_id: campusId },
+        required: true,
+        where: { campus_id: campusId, is_active: 1, is_timetable_eligible: 1 },
         attributes: ['joining_date'],
       },
     ],
