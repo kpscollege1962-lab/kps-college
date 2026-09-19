@@ -19,7 +19,7 @@ const formatDuration = (timing) => {
   const totalMin = Math.round((toSeconds(timing.end_time) - toSeconds(timing.start_time)) / 60)
   const breakMin = (timing.break_duration ?? 0) > 0 ? timing.break_duration : null
   const instrMin = breakMin != null ? totalMin - breakMin : totalMin
-  return breakMin != null ? `${instrMin}|${breakMin}min` : `${instrMin}min`
+  return breakMin != null ? `${instrMin}|${breakMin}` : `${instrMin}`
 }
 
 const formatRange = (timing) => {
@@ -50,6 +50,9 @@ const ClassLabel = ({ classGroupName, sectionName }) => {
 // Only applied when falling back to a staff member's full name (initials are
 // left as-is, since "Mr. H.A.K." would read oddly).
 const withMr = (fullName) => (fullName ? `Mr. ${fullName}` : fullName)
+
+// One line of text for a staff member — initials if available, else "Mr. Full Name".
+const staffDisplay = (staff) => staff?.name_initials ?? withMr(staff?.full_name) ?? '—'
 
 const secondsToClock = (totalSeconds) => {
   const wrapped = ((totalSeconds % 86400) + 86400) % 86400
@@ -93,9 +96,35 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
   const assemblyPeriod = sortedPeriods[0] ?? null
   const teachingSourcePeriods = sortedPeriods.length > 0 ? sortedPeriods.slice(1) : []
 
+  // Split each subject's slots into ones with an assigned teacher (rendered
+  // in the normal per-period grid) and ones without (staff === null) — those
+  // get pulled out entirely and listed in a separate "no teacher assigned"
+  // section below the table, rather than showing up as a bare class/section
+  // with no name inside a grid cell.
+  const subjectsWithAssignedSlots = subjects.map((subject) => ({
+    ...subject,
+    slots: (subject.slots ?? []).filter((sl) => sl.staff != null),
+  }))
+
+  // Maps a period's raw period_number to its display label (P1, P2, ...) —
+  // same numbering the grid's column headers use, which excludes Assembly.
+  const periodDisplayMap = new Map(teachingSourcePeriods.map((p, idx) => [p.period_number, idx + 1]))
+
+  const teacherlessEntries = subjects.flatMap((subject) =>
+    (subject.slots ?? [])
+      .filter((sl) => sl.staff == null)
+      .map((sl) => ({
+        key: `${subject.id}-${sl.periodNumber}-${sl.classGroupName}-${sl.sectionName}`,
+        subjectName: subject.name_initials ?? subject.name,
+        periodDisplayLabel: periodDisplayMap.get(sl.periodNumber) ?? sl.periodNumber,
+        classGroupName: sl.classGroupName,
+        sectionName: sl.sectionName,
+      })),
+  )
+
   const columns = teachingSourcePeriods.length > 0
     ? teachingSourcePeriods.map((p, idx) => ({ key: p.id, periodNumber: p.period_number, displayLabel: idx + 1, timings: p.timings }))
-    : [...new Set(subjects.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
+    : [...new Set(subjectsWithAssignedSlots.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
         .sort((a, b) => a - b)
         .map((n, idx) => ({ key: n, periodNumber: n, displayLabel: idx + 1, timings: null }))
 
@@ -177,7 +206,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                 </th>
               ))}
             </tr>
-            {/* Row 2 — Full Day start times (chained) */}
+            {/* Row 2 — Full Day end times (chained) */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
@@ -194,7 +223,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                 )
               })}
             </tr>
-            {/* Row 3 — Friday start times */}
+            {/* Row 3 — Friday end times */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
@@ -224,7 +253,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
                   <th className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-between">
                       <span>{formatDuration(fdTiming)}</span>
                       <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
                     </div>
@@ -235,7 +264,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
           </thead>
 
           <tbody>
-            {subjects.map((subject, idx) => (
+            {subjectsWithAssignedSlots.map((subject, idx) => (
               <tr key={subject.id}>
                 <td
                   style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
@@ -257,7 +286,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                   style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                   className="sticky z-10 bg-muted border border-border text-center text-xs font-semibold"
                 >
-                  {subject.slots.length}
+                  {new Set(subject.slots.map((sl) => sl.periodNumber)).size}
                 </td>
 
                 {columns.map((col) => {
@@ -311,7 +340,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                           <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
                         </p>
                         <p className="text-muted-foreground/80 leading-tight">
-                          {entry.staff?.name_initials ?? withMr(entry.staff?.full_name) ?? '—'}
+                          {staffDisplay(entry.staff)}
                         </p>
                       </div>
                     )
@@ -330,37 +359,38 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                     )
                   }
 
-                  // Multiple entries stacked in one cell — each entry gets its
-                  // own inline strip beside it, since entries don't share a
-                  // single row height the way the single-entry case does.
+                  // Multiple classes taking this subject in the same period
+                  // (e.g. one teacher covering several classes at once) — same
+                  // 2-column grid treatment as Staff-wise, with the teacher name
+                  // shown once if every class shares the same teacher instead of
+                  // repeating it per class.
+                  const teacherKey = (entry) => entry.staff?.id ?? entry.staff?.full_name ?? null
+                  const sharedTeacher = teacherKey(entries[0]) && entries.every(
+                    (e) => teacherKey(e) === teacherKey(entries[0]),
+                  )
+                    ? entries[0].staff
+                    : null
+
                   return (
-                    <td key={col.key} className="border border-border align-top text-xs p-0">
-                      {entries.map((entry, i) => {
-                        const breakPosition = entryBreakPosition(entry)
-                        const content = (
-                          <div className="px-1.5 py-0.5">
-                            <p className="font-medium text-foreground leading-tight">
-                              <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
-                            </p>
-                            <p className="text-muted-foreground/80 leading-tight">
-                              {entry.staff?.name_initials ?? withMr(entry.staff?.full_name) ?? '—'}
-                            </p>
-                          </div>
-                        )
-                        return (
-                          <div
-                            key={i}
-                            className={
-                              (i > 0 ? 'border-t border-border/40 ' : '') +
-                              (breakPosition ? 'flex' : '')
-                            }
-                          >
-                            {breakPosition === 'before' && <BreakStrip side="before" />}
-                            {breakPosition ? <div className="flex-1">{content}</div> : content}
-                            {breakPosition === 'after' && <BreakStrip side="after" />}
-                          </div>
-                        )
-                      })}
+                    <td key={col.key} className="border border-border p-1.5 align-top text-xs" style={{ maxWidth: 130 }}>
+                      <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight">
+                        {entries.map((entry, i) => (
+                          <span key={i} className="whitespace-nowrap">
+                            <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                          </span>
+                        ))}
+                      </div>
+                      {sharedTeacher ? (
+                        <p className="text-muted-foreground/80 leading-tight mt-0.5">
+                          {staffDisplay(sharedTeacher)}
+                        </p>
+                      ) : (
+                        entries.map((entry, i) => (
+                          <p key={i} className="text-muted-foreground/80 leading-tight">
+                            {staffDisplay(entry.staff)}
+                          </p>
+                        ))
+                      )}
                     </td>
                   )
                 })}
@@ -368,6 +398,36 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
             ))}
           </tbody>
         </table>
+
+        {teacherlessEntries.length > 0 && (
+          <div className="mt-6 pt-4 border-t-2 border-dashed border-border">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">
+              No teacher assigned
+            </p>
+            <table className="border-separate border-spacing-0 text-xs w-full max-w-md">
+              <thead>
+                <tr className="bg-muted">
+                  <th className="border border-border px-2 py-1 text-left font-semibold text-[10px]">Subject</th>
+                  <th className="border border-border px-2 py-1 text-left font-semibold text-[10px]">Class / Section</th>
+                  <th className="border border-border px-2 py-1 text-center font-semibold text-[10px]">Period</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teacherlessEntries.map((entry) => (
+                  <tr key={entry.key}>
+                    <td className="border border-border px-2 py-1">{entry.subjectName}</td>
+                    <td className="border border-border px-2 py-1">
+                      <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                    </td>
+                    <td className="border border-border px-2 py-1 text-center text-muted-foreground">
+                      P{entry.periodDisplayLabel}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

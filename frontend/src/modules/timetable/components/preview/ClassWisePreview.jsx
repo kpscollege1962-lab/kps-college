@@ -19,7 +19,7 @@ const formatDuration = (timing) => {
   const totalMin = Math.round((toSeconds(timing.end_time) - toSeconds(timing.start_time)) / 60)
   const breakMin = (timing.break_duration ?? 0) > 0 ? timing.break_duration : null
   const instrMin = breakMin != null ? totalMin - breakMin : totalMin
-  return breakMin != null ? `${instrMin}|${breakMin}min` : `${instrMin}min`
+  return breakMin != null ? `${instrMin}|${breakMin}` : `${instrMin}`
 }
 
 // Full range, used only for the one-off Assembly note (it has no adjacent
@@ -219,7 +219,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                 const hdTiming = period.timings?.find((t) => t.config === 'half_day')
                 return (
                   <th className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-between">
                       <span>{formatDuration(fdTiming)}</span>
                       <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
                     </div>

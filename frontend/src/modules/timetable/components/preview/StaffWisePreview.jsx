@@ -19,7 +19,7 @@ const formatDuration = (timing) => {
   const totalMin = Math.round((toSeconds(timing.end_time) - toSeconds(timing.start_time)) / 60)
   const breakMin = (timing.break_duration ?? 0) > 0 ? timing.break_duration : null
   const instrMin = breakMin != null ? totalMin - breakMin : totalMin
-  return breakMin != null ? `${instrMin}|${breakMin}min` : `${instrMin}min`
+  return breakMin != null ? `${instrMin}|${breakMin}` : `${instrMin}`
 }
 
 const formatRange = (timing) => {
@@ -193,7 +193,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 </th>
               ))}
             </tr>
-            {/* Row 2 — Full Day start times (chained) */}
+            {/* Row 2 — Full Day end times (chained) */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
@@ -210,7 +210,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 )
               })}
             </tr>
-            {/* Row 3 — Friday start times */}
+            {/* Row 3 — Friday end times */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
@@ -240,7 +240,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
                   <th className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-between">
                       <span>{formatDuration(fdTiming)}</span>
                       <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
                     </div>
@@ -280,16 +280,21 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                   const entries = member.slots.filter((sl) => sl.periodNumber === col.periodNumber)
 
                   if (entries.length > 1) {
-                    // If every class in this period shares the same label (e.g. all
-                    // "DRILL"), it's one period-wide activity — list the classes in
-                    // a fixed 2-column grid (instead of one unbroken line) so this
-                    // column no longer stretches to fit every class name. A plain
-                    // flex-wrap would sometimes drop just one leftover class onto
-                    // its own row when it didn't fit next to the last pair; a
-                    // 2-column grid always fills row-major, two per row, so the
-                    // split is even instead of a lone straggler each time.
-                    const sharedLabel = entries.every((e) => e.label && e.label === entries[0].label)
-                      ? entries[0].label
+                    // If every class in this period shares the same activity —
+                    // either a free-text label like "DRILL" typed on the slot, OR
+                    // all classes assigned the same actual Subject (e.g. a "DRILL"
+                    // subject via subject1/subject2 rather than the label field) —
+                    // it's one period-wide activity: show it once instead of
+                    // repeating per class. Checking label alone misses the
+                    // subject-based case entirely, which is what caused "DRILL" to
+                    // print once per class instead of once for the whole period.
+                    const normalizeLabel = (l) => (l ?? '').trim().toLowerCase()
+                    const entryDisplayText = (e) => e.label || buildSubjectLine(e)
+                    const firstDisplay = entryDisplayText(entries[0])
+                    const sharedLabel = firstDisplay && entries.every(
+                      (e) => normalizeLabel(entryDisplayText(e)) === normalizeLabel(firstDisplay),
+                    )
+                      ? firstDisplay
                       : null
 
                     return (

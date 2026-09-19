@@ -154,19 +154,22 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
     }
   }
 
-  const withSlots = staffList.map((staff) => {
-    const entryMap = bySlotByStaff.get(staff.id) ?? new Map();
-    return {
-      id:            staff.id,
-      full_name:     staff.full_name,
-      name_initials: staff.name_initials,
-      _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
-      slots: [...entryMap.values()].sort((a, b) => a.periodNumber - b.periodNumber),
-    };
-  });
-  // Note: staff with zero periods are now KEPT (not filtered out) — see the
-  // "empty row" request: an admin should be able to see who has nothing
-  // assigned, not just who does.
+  // Staff with zero periods are excluded — a staff member who's eligible for
+  // the timetable but has nothing assigned yet shouldn't clutter the preview
+  // with an all-dashes row; the preview is meant to show the working
+  // schedule, not a roster of everyone who could be scheduled.
+  const withSlots = staffList
+    .map((staff) => {
+      const entryMap = bySlotByStaff.get(staff.id) ?? new Map();
+      return {
+        id:            staff.id,
+        full_name:     staff.full_name,
+        name_initials: staff.name_initials,
+        _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
+        slots: [...entryMap.values()].sort((a, b) => a.periodNumber - b.periodNumber),
+      };
+    })
+    .filter((staff) => staff.slots.length > 0);
 
   // Seniority order: earliest joining_date first (most senior at the top).
   // Staff with no recorded joining_date sort last, then alphabetically among
