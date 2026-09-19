@@ -84,7 +84,7 @@ const computeBreakWindows = (timing) => {
 
 const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 78
-const LABEL_COL_WIDTH  = 68
+const LABEL_COL_WIDTH  = 44
 
 export default function ClassWisePreview({ periods, rows, printRef, titleUrl, watermarkUrl }) {
   // The first period (by period_number) is Assembly — every class shows "—"
@@ -125,24 +125,29 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
       <div className="relative z-10">
         <PrintHeader titleUrl={titleUrl} />
 
-        {(assemblyPeriod || breakWindowList.length > 0) && (
-          <div className="flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-            <p>
-              {assemblyPeriod && (
-                <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
-              )}
-            </p>
-            {breakWindowList.length > 0 && (
-              <p className="text-right">
-                {breakWindowList.map((bw, i) => (
-                  <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
-                    Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
-                  </span>
-                ))}
-              </p>
+        {/* Assembly note (left) / page title (centered, absolute so it stays
+            truly centered regardless of how wide the left/right text is) /
+            break notes (right). Always rendered — even with no assembly or
+            break data configured, the bold title still needs to show. */}
+        <div className="relative flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap min-h-[18px]">
+          <p>
+            {assemblyPeriod && (
+              <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
-          </div>
-        )}
+          </p>
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-sm text-foreground whitespace-nowrap">
+            CLASS WISE TIMETABLE
+          </p>
+          {breakWindowList.length > 0 && (
+            <p className="text-right">
+              {breakWindowList.map((bw, i) => (
+                <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
+                  Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
@@ -176,7 +181,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
               </th>
@@ -193,7 +198,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
               </th>
@@ -210,7 +215,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-0.5 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-0.5 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
               </th>
@@ -288,10 +293,10 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                       : null
 
                     const contentNode = hasContent ? (
-                      <div className="space-y-0.5">
+                      <div className="space-y-0.5 text-center">
                         {slotLabel && <p className="font-medium text-foreground leading-tight">{slotLabel}</p>}
                         {pairLines.map((line, i) => (
-                          <p key={i} className="text-muted-foreground/80 leading-tight">
+                          <p key={i} className="text-foreground leading-tight">
                             {line.subject}
                             {line.subject && line.staff && ' · '}
                             {line.staff}
@@ -299,11 +304,11 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                         ))}
                       </div>
                     ) : (
-                      <span className="text-muted-foreground italic select-none">—</span>
+                      <span className="text-foreground italic select-none">—</span>
                     )
 
                     return (
-                      <td key={period.id} className="border border-border align-top relative">
+                      <td key={period.id} className="border border-border align-top text-center relative">
                         {breakPosition ? (
                           <div className="absolute inset-0 flex min-h-[56px]">
                             {breakPosition === 'before' && (
@@ -313,7 +318,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                                 </span>
                               </div>
                             )}
-                            <div className="flex-1 p-1.5">
+                            <div className="flex-1 p-1.5 flex items-center justify-center">
                               {contentNode}
                             </div>
                             {breakPosition === 'after' && (
@@ -325,7 +330,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                             )}
                           </div>
                         ) : (
-                          <div className="p-1.5 min-h-[56px]">{contentNode}</div>
+                          <div className="p-1.5 min-h-[56px] flex items-center justify-center">{contentNode}</div>
                         )}
                       </td>
                     )

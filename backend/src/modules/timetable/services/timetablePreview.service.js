@@ -181,7 +181,66 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
     return a.full_name.localeCompare(b.full_name);
   });
 
-  return withSlots.map(({ _joiningDate, ...staff }) => staff);
+  // Slots that have real content (a subject or a label) but NO staff member
+  // assigned at all — these are invisible to the query above (which only
+  // looks for slot_id_1/2), so they're fetched separately here and appended
+  // as one extra unnamed row at the bottom of the table: the "who still
+  // needs a teacher" row. Its Staff-column cell stays blank (no full_name),
+  // while its period cells render normally (class + subject), same as any
+  // other row.
+  const unassignedSlots = await TimetableSlot.findAll({
+    where: {
+      staff_id_1: null,
+      staff_id_2: null,
+      [Op.or]: [
+        { subject_id_1: { [Op.ne]: null } },
+        { label:        { [Op.ne]: null } },
+      ],
+    },
+    attributes: ['id', 'label', 'break_position'],
+    include: [
+      {
+        model: TimetablePeriod, as: 'period',
+        required: true,
+        where: { campus_id: campusId },
+        attributes: ['id', 'period_number'],
+      },
+      {
+        model: ClassGroup, as: 'classGroup',
+        required: true,
+        where: { session_id: sessionId },
+        attributes: ['id', 'name'],
+      },
+      { model: Section, as: 'section', attributes: ['id', 'name'] },
+      { model: Subject, as: 'subject1', attributes: ['id', 'name', 'name_initials'] },
+      { model: Subject, as: 'subject2', attributes: ['id', 'name', 'name_initials'] },
+    ],
+  });
+
+  const unassignedEntries = unassignedSlots
+    .map((slot) => ({
+      periodNumber:   slot.period.period_number,
+      classGroupName: slot.classGroup?.name ?? null,
+      sectionName:    slot.section?.name ?? null,
+      label:          slot.label ?? null,
+      breakPosition:  slot.break_position ?? null,
+      subject1:       slot.subject1 ?? null,
+      subject2:       slot.subject2 ?? null,
+    }))
+    .sort((a, b) => a.periodNumber - b.periodNumber);
+
+  const result = withSlots.map(({ _joiningDate, ...staff }) => staff);
+
+  if (unassignedEntries.length > 0) {
+    result.push({
+      id:            'unassigned',
+      full_name:     null,
+      name_initials: null,
+      slots:         unassignedEntries,
+    });
+  }
+
+  return result;
 };
 
 // ── Subject-wise preview ─────────────────────────────────────────────────────────

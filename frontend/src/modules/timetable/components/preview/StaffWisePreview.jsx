@@ -92,7 +92,7 @@ const computeBreakWindows = (timing) => {
 
 const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 110
-const LABEL_COL_WIDTH  = 68
+const LABEL_COL_WIDTH  = 44
 
 export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl }) {
   if (!staff || staff.length === 0) {
@@ -146,24 +146,29 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
       <div className="relative z-10">
         <PrintHeader titleUrl={titleUrl} />
 
-        {(assemblyPeriod || breakWindowList.length > 0) && (
-          <div className="flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-            <p>
-              {assemblyPeriod && (
-                <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
-              )}
-            </p>
-            {breakWindowList.length > 0 && (
-              <p className="text-right">
-                {breakWindowList.map((bw, i) => (
-                  <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
-                    Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
-                  </span>
-                ))}
-              </p>
+        {/* Assembly note (left) / page title (centered, absolute so it stays
+            truly centered regardless of how wide the left/right text is) /
+            break notes (right). Always rendered — even with no assembly or
+            break data configured, the bold title still needs to show. */}
+        <div className="relative flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap min-h-[18px]">
+          <p>
+            {assemblyPeriod && (
+              <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
-          </div>
-        )}
+          </p>
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-sm text-foreground whitespace-nowrap">
+            STAFF WISE TIMETABLE
+          </p>
+          {breakWindowList.length > 0 && (
+            <p className="text-right">
+              {breakWindowList.map((bw, i) => (
+                <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
+                  Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
@@ -193,11 +198,11 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 </th>
               ))}
             </tr>
-            {/* Row 2 — Full Day end times (chained) */}
+            {/* Row 2 — Full Day start times (chained) */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
               </th>
@@ -210,11 +215,11 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 )
               })}
             </tr>
-            {/* Row 3 — Friday end times */}
+            {/* Row 3 — Friday start times */}
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
               </th>
@@ -231,7 +236,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-0.5 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-0.5 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
               </th>
@@ -251,7 +256,14 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
           </thead>
 
           <tbody>
-            {staff.map((member, idx) => (
+            {staff.map((member, idx) => {
+              // The backend appends one special "unassigned" pseudo-row (id
+              // === 'unassigned') for slots that have real content but no
+              // staff member — its Staff-column cell stays blank rather than
+              // showing a name, since nobody is actually assigned to it.
+              const isUnassignedRow = member.id === 'unassigned'
+
+              return (
               <tr key={member.id}>
                 <td
                   style={{ width: SERIAL_COL_WIDTH, minWidth: SERIAL_COL_WIDTH }}
@@ -263,9 +275,13 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                   style={{ left: SERIAL_COL_WIDTH, width: NAME_COL_WIDTH, minWidth: NAME_COL_WIDTH }}
                   className="sticky z-10 bg-muted border border-border px-3 py-2 whitespace-nowrap text-xs align-top"
                 >
-                  <div className="font-medium text-foreground">{withMr(member.full_name)}</div>
-                  {member.name_initials && (
-                    <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
+                  {!isUnassignedRow && (
+                    <>
+                      <div className="font-medium text-foreground">{withMr(member.full_name)}</div>
+                      {member.name_initials && (
+                        <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
+                      )}
+                    </>
                   )}
                 </td>
 
@@ -298,27 +314,36 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                       : null
 
                     return (
-                      <td key={col.key} className="border border-border p-1.5 align-top text-xs" style={{ maxWidth: 130 }}>
-                        <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight">
-                          {entries.map((entry, i) => (
-                            <span key={i} className="whitespace-nowrap">
-                              <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
-                            </span>
-                          ))}
-                        </div>
+                      <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs" style={{ maxWidth: 130 }}>
                         {sharedLabel ? (
-                          <p className="text-muted-foreground/80 leading-tight mt-0.5">{sharedLabel}</p>
+                          <>
+                            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight text-center">
+                              {entries.map((entry, i) => (
+                                <span key={i} className="whitespace-nowrap">
+                                  <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-foreground leading-tight mt-0.5">{sharedLabel}</p>
+                          </>
                         ) : (
-                          entries.map((entry, i) => {
-                            const entrySubjectLine = buildSubjectLine(entry)
-                            return (entry.label || entrySubjectLine) ? (
-                              <p key={i} className="text-muted-foreground/80 leading-tight">
-                                {entry.label}
-                                {entry.label && entrySubjectLine && ' · '}
-                                {entrySubjectLine}
-                              </p>
-                            ) : null
-                          })
+                          // Different classes have different labels/subjects in this
+                          // cell — pairing each class with its own detail ON THE SAME
+                          // LINE (joined by "/") instead of listing classes and
+                          // labels as two separate stacks removes the ambiguity of
+                          // which class the label/subject belongs to.
+                          <div className="space-y-0.5">
+                            {entries.map((entry, i) => {
+                              const entrySubjectLine = buildSubjectLine(entry)
+                              const detail = entry.label || entrySubjectLine
+                              return (
+                                <p key={i} className="font-medium text-foreground leading-tight">
+                                  <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                                  {detail && <>{' / '}{detail}</>}
+                                </p>
+                              )
+                            })}
+                          </div>
                         )}
                       </td>
                     )
@@ -335,23 +360,23 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                       : null
 
                   const contentNode = slot ? (
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 text-center">
                       <p className="font-medium text-foreground leading-tight">
                         <ClassLabel classGroupName={slot.classGroupName} sectionName={slot.sectionName} />
                       </p>
                       {slot.label && (
-                        <p className="text-muted-foreground/80 leading-tight">{slot.label}</p>
+                        <p className="text-foreground leading-tight">{slot.label}</p>
                       )}
                       {subjectLine && (
-                        <p className="text-muted-foreground/80 leading-tight">{subjectLine}</p>
+                        <p className="text-foreground leading-tight">{subjectLine}</p>
                       )}
                     </div>
                   ) : (
-                    <span className="text-muted-foreground italic select-none">—</span>
+                    <span className="text-foreground italic select-none">—</span>
                   )
 
                   return (
-                    <td key={col.key} className="border border-border align-top text-xs relative">
+                    <td key={col.key} className="border border-border align-top text-center text-xs relative">
                       {breakPosition ? (
                         <div className="absolute inset-0 flex min-h-[48px]">
                           {breakPosition === 'before' && (
@@ -361,7 +386,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                               </span>
                             </div>
                           )}
-                          <div className="flex-1 p-1.5">
+                          <div className="flex-1 p-1.5 flex items-center justify-center">
                             {contentNode}
                           </div>
                           {breakPosition === 'after' && (
@@ -373,13 +398,14 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                           )}
                         </div>
                       ) : (
-                        <div className="p-1.5 min-h-[48px]">{contentNode}</div>
+                        <div className="p-1.5 min-h-[48px] flex items-center justify-center">{contentNode}</div>
                       )}
                     </td>
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

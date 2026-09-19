@@ -23,22 +23,35 @@ const CONCURRENT_EXEMPT_LABELS = ['PT', 'DRILL'];
 const isConcurrentExemptLabel = (label) =>
   !!label && CONCURRENT_EXEMPT_LABELS.includes(label.trim().toUpperCase());
 
+// ── Split-period (Primary/Alternate) role helper ────────────────────────────────
+// A slot is "split" only when BOTH staff_id_1 and staff_id_2 are set AND they
+// are two DIFFERENT people — that's the only case where the period's clock
+// time is genuinely divided in half between two teachers (Primary teaches the
+// first half, Alternate the second half). If staff_id_2 is empty, or the same
+// person fills both roles, one person covers the FULL period — there's no
+// free half to lend out, so this must never be treated as split.
+const isSplitSlot = (staffId1, staffId2) =>
+  staffId1 != null && staffId2 != null && staffId1 !== staffId2;
+
 // ── Staff period conflict check ────────────────────────────────────────────────
-// A staff member can only appear in one slot per period (across all class groups/sections) —
-// UNLESS both the slot being written and the conflicting slot are "alternate" slots
-// (staff_id_1 AND staff_id_2 both populated on the row). An alternate slot splits its
-// period's clock time in half between two teachers (e.g. a 40-minute period becomes two
-// 20-minute halves), so each teacher assigned that way is only actually occupied for half
-// the period — meaning the same teacher can legitimately be part of a second alternate
-// slot elsewhere in that same period, covering the other half of their time. This
-// exemption only applies when BOTH slots are alternate; a teacher who is the sole staff
-// member on a slot (staff_id_2 null) still occupies the full period and stays blocked.
+// A staff member can only appear in one slot per period (across all class groups/
+// sections) — UNLESS the two placements are on complementary halves of a split
+// period. Concretely: a teacher who is the PRIMARY (first-half) teacher on one
+// split slot can also be the ALTERNATE (second-half) teacher on a different slot
+// in the very same period, and vice versa — those two commitments never overlap
+// in actual clock time. Any other combination is a genuine overlap and stays
+// blocked: the same role twice (primary+primary or alternate+alternate) means
+// occupying the same half of two different classes at once, and either side
+// being a FULL-period commitment (not split) leaves no free half to begin with.
+//
+// role: 'primary' | 'alternate' | 'full' — which half (if any) of the period
+// staffId is being assigned to on the slot currently being saved.
 
 // excludePositions: [{ classGroupId, sectionId }, ...] — one or more positions to
 // exclude from the conflict search. A swap excludes BOTH the source and destination
 // positions when they share the same period, since the staff member's own pre-swap
 // row may still physically occupy the other position until the transaction commits.
-const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, excludePositions, isAlternate }) => {
+const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, excludePositions, role }) => {
   if (isConcurrentExemptLabel(label)) return; // PT/DRILL — exempt regardless of staff
 
   const posting = await StaffPosting.findOne({
@@ -62,9 +75,18 @@ const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, ex
 
   if (!conflict) return;
 
-  // Alternate-class exemption — see comment above.
-  const conflictIsAlternate = conflict.staff_id_1 != null && conflict.staff_id_2 != null;
-  if (isAlternate && conflictIsAlternate) return;
+  // Which role does staffId play on the CONFLICTING slot?
+  const conflictIsSplit = isSplitSlot(conflict.staff_id_1, conflict.staff_id_2);
+  let conflictRole = 'full';
+  if (conflictIsSplit) {
+    if (conflict.staff_id_1 === staffId) conflictRole = 'primary';
+    else if (conflict.staff_id_2 === staffId) conflictRole = 'alternate';
+  }
+
+  const isComplementary =
+    (role === 'primary'   && conflictRole === 'alternate') ||
+    (role === 'alternate' && conflictRole === 'primary');
+  if (isComplementary) return;
 
   const where = conflict.classGroup
     ? ` (${conflict.classGroup.name}${conflict.section?.name ? ` ${conflict.section.name}` : ''})`
@@ -79,26 +101,28 @@ const upsertSlot = async ({ campusId, classGroupId, sectionId, periodId, label, 
 
   // Resolve the label and staff fields this slot will actually carry after this
   // write — the incoming value if one was given, otherwise whatever the slot
-  // already has — since both the exemption-by-label check and the
-  // alternate-slot check must reflect the slot's real resulting content, not
-  // just what happens to be in this particular request payload.
+  // already has — since both the exemption-by-label check and the split-role
+  // check must reflect the slot's real resulting content, not just what
+  // happens to be in this particular request payload.
   const existingSlot = await TimetableSlot.findOne({
     where: { period_id: periodId, class_group_id: classGroupId, section_id: sectionId },
   });
   const effectiveLabel    = label     !== undefined ? label     : (existingSlot?.label      ?? null);
   const effectiveStaffId1 = staffId1  !== undefined ? staffId1  : (existingSlot?.staff_id_1  ?? null);
   const effectiveStaffId2 = staffId2  !== undefined ? staffId2  : (existingSlot?.staff_id_2  ?? null);
-  const isAlternate = effectiveStaffId1 != null && effectiveStaffId2 != null;
+  const split = isSplitSlot(effectiveStaffId1, effectiveStaffId2);
 
   if (staffId1 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId1, periodId, campusId, label: effectiveLabel, isAlternate,
+      staffId: staffId1, periodId, campusId, label: effectiveLabel,
+      role: split ? 'primary' : 'full',
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
   if (staffId2 != null) {
     await checkStaffPeriodConflict({
-      staffId: staffId2, periodId, campusId, label: effectiveLabel, isAlternate,
+      staffId: staffId2, periodId, campusId, label: effectiveLabel,
+      role: split ? 'alternate' : 'full',
       excludePositions: [{ classGroupId, sectionId }],
     });
   }
@@ -178,8 +202,6 @@ const swapSlots = async ({
     content.subject_id_2 === null &&
     content.staff_id_1   === null &&
     content.staff_id_2   === null;
-  const isAlternateContent = (content) =>
-    content.staff_id_1 != null && content.staff_id_2 != null;
   const result = await sequelize.transaction(async (t) => {
     const [recordA, recordB] = await Promise.all([
       TimetableSlot.findOne({
@@ -197,18 +219,18 @@ const swapSlots = async ({
     // its own DESTINATION period, not a shared one. B's staff moves into A's period;
     // A's staff moves into B's period. Each check uses the LABEL that's moving along
     // with that content, so a PT/DRILL slot swapped into a new period stays exempt —
-    // and the ALTERNATE flag that's moving with it, so an alternate slot swapped into
-    // a new period still allows the same-teacher-twice exemption there.
+    // and the split/role state that's moving with it, so a split slot swapped into a
+    // new period still allows the complementary-half exemption there.
     // Exclude BOTH slot positions from each check. This matters specifically when
     // slotA.periodId === slotB.periodId — the staff member's own pre-swap row may still
     // be sitting at the *other* slot's position (not yet overwritten) when this check
     // runs, and that row must not be mistaken for a genuine conflict.
-    const contentBIsAlternate = isAlternateContent(contentB);
-    const contentAIsAlternate = isAlternateContent(contentA);
+    const contentBSplit = isSplitSlot(contentB.staff_id_1, contentB.staff_id_2);
+    const contentASplit = isSplitSlot(contentA.staff_id_1, contentA.staff_id_2);
     if (contentB.staff_id_1 != null) {
       await checkStaffPeriodConflict({
         staffId: contentB.staff_id_1, periodId: slotA.periodId, campusId, label: contentB.label,
-        isAlternate: contentBIsAlternate,
+        role: contentBSplit ? 'primary' : 'full',
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -218,7 +240,7 @@ const swapSlots = async ({
     if (contentB.staff_id_2 != null) {
       await checkStaffPeriodConflict({
         staffId: contentB.staff_id_2, periodId: slotA.periodId, campusId, label: contentB.label,
-        isAlternate: contentBIsAlternate,
+        role: contentBSplit ? 'alternate' : 'full',
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -228,7 +250,7 @@ const swapSlots = async ({
     if (contentA.staff_id_1 != null) {
       await checkStaffPeriodConflict({
         staffId: contentA.staff_id_1, periodId: slotB.periodId, campusId, label: contentA.label,
-        isAlternate: contentAIsAlternate,
+        role: contentASplit ? 'primary' : 'full',
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },
@@ -238,7 +260,7 @@ const swapSlots = async ({
     if (contentA.staff_id_2 != null) {
       await checkStaffPeriodConflict({
         staffId: contentA.staff_id_2, periodId: slotB.periodId, campusId, label: contentA.label,
-        isAlternate: contentAIsAlternate,
+        role: contentASplit ? 'alternate' : 'full',
         excludePositions: [
           { classGroupId: slotA.classGroupId, sectionId: slotA.sectionId },
           { classGroupId: slotB.classGroupId, sectionId: slotB.sectionId },

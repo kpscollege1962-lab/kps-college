@@ -81,7 +81,7 @@ const computeBreakWindows = (timing) => {
 
 const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 95
-const LABEL_COL_WIDTH  = 68
+const LABEL_COL_WIDTH  = 44
 
 export default function SubjectWisePreview({ subjects, periods, printRef, titleUrl, watermarkUrl }) {
   if (!subjects || subjects.length === 0) {
@@ -159,24 +159,29 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
       <div className="relative z-10">
         <PrintHeader titleUrl={titleUrl} />
 
-        {(assemblyPeriod || breakWindowList.length > 0) && (
-          <div className="flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-            <p>
-              {assemblyPeriod && (
-                <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
-              )}
-            </p>
-            {breakWindowList.length > 0 && (
-              <p className="text-right">
-                {breakWindowList.map((bw, i) => (
-                  <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
-                    Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
-                  </span>
-                ))}
-              </p>
+        {/* Assembly note (left) / page title (centered, absolute so it stays
+            truly centered regardless of how wide the left/right text is) /
+            break notes (right). Always rendered — even with no assembly or
+            break data configured, the bold title still needs to show. */}
+        <div className="relative flex items-start justify-between gap-4 text-xs text-muted-foreground mb-2 flex-wrap min-h-[18px]">
+          <p>
+            {assemblyPeriod && (
+              <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
-          </div>
-        )}
+          </p>
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-sm text-foreground whitespace-nowrap">
+            SUBJECT WISE TIMETABLE
+          </p>
+          {breakWindowList.length > 0 && (
+            <p className="text-right">
+              {breakWindowList.map((bw, i) => (
+                <span key={bw.key} className={i > 0 ? 'ml-3' : ''}>
+                  Break {i + 1}: {bw.fd ?? '–'}{bw.fr && ` (Friday: ${bw.fr})`}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
 
         <table className="border-separate border-spacing-0 text-xs w-full">
           <thead className="sticky top-0 z-10 bg-muted">
@@ -210,7 +215,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
               </th>
@@ -227,7 +232,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-1 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Friday</span>
               </th>
@@ -244,7 +249,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
             <tr>
               <th
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
-                className="sticky z-20 bg-muted border border-border px-2 py-0.5 text-left"
+                className="sticky z-20 bg-muted border border-border px-1.5 py-0.5 text-left"
               >
                 <span className="text-[10px] text-muted-foreground font-medium">Interval</span>
               </th>
@@ -323,8 +328,8 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
 
                   if (entries.length === 0) {
                     return (
-                      <td key={col.key} className="border border-border p-1.5 align-top text-xs">
-                        <span className="text-muted-foreground italic select-none">—</span>
+                      <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs">
+                        <span className="text-foreground italic select-none">—</span>
                       </td>
                     )
                   }
@@ -335,25 +340,25 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                     const entry = entries[0]
                     const breakPosition = entryBreakPosition(entry)
                     const content = (
-                      <div className="py-0.5">
+                      <div className="py-0.5 text-center">
                         <p className="font-medium text-foreground leading-tight">
                           <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
                         </p>
-                        <p className="text-muted-foreground/80 leading-tight">
+                        <p className="text-foreground leading-tight">
                           {staffDisplay(entry.staff)}
                         </p>
                       </div>
                     )
                     return (
-                      <td key={col.key} className="border border-border align-top text-xs relative">
+                      <td key={col.key} className="border border-border align-top text-center text-xs relative">
                         {breakPosition ? (
                           <div className="absolute inset-0 flex min-h-[48px]">
                             {breakPosition === 'before' && <BreakStrip side="before" />}
-                            <div className="flex-1 p-1.5">{content}</div>
+                            <div className="flex-1 p-1.5 flex items-center justify-center">{content}</div>
                             {breakPosition === 'after' && <BreakStrip side="after" />}
                           </div>
                         ) : (
-                          <div className="p-1.5 min-h-[48px]">{content}</div>
+                          <div className="p-1.5 min-h-[48px] flex items-center justify-center">{content}</div>
                         )}
                       </td>
                     )
@@ -372,24 +377,35 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                     : null
 
                   return (
-                    <td key={col.key} className="border border-border p-1.5 align-top text-xs" style={{ maxWidth: 130 }}>
-                      <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight">
-                        {entries.map((entry, i) => (
-                          <span key={i} className="whitespace-nowrap">
-                            <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
-                          </span>
-                        ))}
-                      </div>
+                    <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs" style={{ maxWidth: 130 }}>
                       {sharedTeacher ? (
-                        <p className="text-muted-foreground/80 leading-tight mt-0.5">
-                          {staffDisplay(sharedTeacher)}
-                        </p>
-                      ) : (
-                        entries.map((entry, i) => (
-                          <p key={i} className="text-muted-foreground/80 leading-tight">
-                            {staffDisplay(entry.staff)}
+                        <>
+                          <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight text-center">
+                            {entries.map((entry, i) => (
+                              <span key={i} className="whitespace-nowrap">
+                                <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-foreground leading-tight mt-0.5">
+                            {staffDisplay(sharedTeacher)}
                           </p>
-                        ))
+                        </>
+                      ) : (
+                        // Different teachers cover different classes in this cell —
+                        // pairing each class with its own teacher ON THE SAME LINE
+                        // (joined by "/") instead of listing classes and teachers as
+                        // two separate stacks removes the ambiguity of which class
+                        // belongs to which teacher once the cell holds more than a
+                        // couple of entries.
+                        <div className="space-y-0.5">
+                          {entries.map((entry, i) => (
+                            <p key={i} className="font-medium text-foreground leading-tight">
+                              <ClassLabel classGroupName={entry.classGroupName} sectionName={entry.sectionName} />
+                              {' / '}{staffDisplay(entry.staff)}
+                            </p>
+                          ))}
+                        </div>
                       )}
                     </td>
                   )
