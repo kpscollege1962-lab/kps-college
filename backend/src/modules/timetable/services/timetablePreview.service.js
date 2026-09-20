@@ -140,17 +140,37 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
       breakPosition:  slot.break_position ?? null,
     };
 
-    if (slot.staff_id_1 != null) {
+    const hasStaff1 = slot.staff_id_1 != null;
+    const hasStaff2 = slot.staff_id_2 != null;
+
+    // When only ONE staff member is set on a slot that still has BOTH
+    // subjects filled in, that one teacher is covering the whole period
+    // themselves (not a split-half arrangement) — so the other subject
+    // belongs to them too, not to nobody. Without this fallback, a slot
+    // like "Primary: History/Mr.X, Alternate: Geography/(no teacher)" would
+    // silently drop Geography from Mr.X's schedule entirely, since nothing
+    // else ever picks it up.
+    if (hasStaff1) {
       const entryMap = getEntryMap(slot.staff_id_1);
       const existing = entryMap.get(slot.id);
-      if (existing) existing.subject1 = slot.subject1 ?? null;
-      else entryMap.set(slot.id, { ...base, subject1: slot.subject1 ?? null, subject2: null });
+      const subject2Fallback = !hasStaff2 ? (slot.subject2 ?? null) : null;
+      if (existing) {
+        existing.subject1 = slot.subject1 ?? null;
+        if (subject2Fallback) existing.subject2 = subject2Fallback;
+      } else {
+        entryMap.set(slot.id, { ...base, subject1: slot.subject1 ?? null, subject2: subject2Fallback });
+      }
     }
-    if (slot.staff_id_2 != null) {
+    if (hasStaff2) {
       const entryMap = getEntryMap(slot.staff_id_2);
       const existing = entryMap.get(slot.id);
-      if (existing) existing.subject2 = slot.subject2 ?? null;
-      else entryMap.set(slot.id, { ...base, subject1: null, subject2: slot.subject2 ?? null });
+      const subject1Fallback = !hasStaff1 ? (slot.subject1 ?? null) : null;
+      if (existing) {
+        existing.subject2 = slot.subject2 ?? null;
+        if (subject1Fallback) existing.subject1 = subject1Fallback;
+      } else {
+        entryMap.set(slot.id, { ...base, subject1: subject1Fallback, subject2: slot.subject2 ?? null });
+      }
     }
   }
 
@@ -285,13 +305,22 @@ const getSubjectWisePreview = async ({ campusId, sessionId }) => {
     order: [['name', 'ASC']],
   });
 
-  const mapSlot = (slot, staffKey) => ({
-    periodNumber:   slot.period.period_number,
-    classGroupName: slot.classGroup?.name ?? null,
-    sectionName:    slot.section?.name ?? null,
-    staff:          slot[staffKey] ?? null,
-    breakPosition:  slot.break_position ?? null,
-  });
+  // primarySlots means "this subject is subject_id_1 on the slot" (staff1 is
+  // its normal teacher); secondarySlots means "this subject is subject_id_2"
+  // (staff2 is its normal teacher). If the OTHER staff field is empty — e.g.
+  // subject_id_2 has no staff_id_2 — the single teacher who IS set (staff_id_1)
+  // is the one actually covering it, so fall back to them rather than showing
+  // "no teacher assigned" for a subject someone is demonstrably teaching.
+  const mapSlot = (slot, staffKey) => {
+    const fallbackKey = staffKey === 'staff1' ? 'staff2' : 'staff1';
+    return {
+      periodNumber:   slot.period.period_number,
+      classGroupName: slot.classGroup?.name ?? null,
+      sectionName:    slot.section?.name ?? null,
+      staff:          slot[staffKey] ?? slot[fallbackKey] ?? null,
+      breakPosition:  slot.break_position ?? null,
+    };
+  };
 
   return subjects
     .map((subject) => {

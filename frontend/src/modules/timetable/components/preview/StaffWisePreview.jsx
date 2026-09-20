@@ -193,7 +193,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 className="sticky z-20 bg-muted border border-border"
               />
               {columns.map((col) => (
-                <th key={col.key} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
+                <th key={col.key} className="border border-border px-1 py-1 text-center font-semibold text-[10px]">
                   P{col.displayLabel}
                 </th>
               ))}
@@ -209,7 +209,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
               {columns.map((col) => {
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
                 return (
-                  <th key={col.key} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
+                  <th key={col.key} className="border border-border px-1 py-1 text-center font-semibold text-[10px]">
                     {formatTimeShort(fdTiming?.end_time) ?? '–'}
                   </th>
                 )
@@ -226,7 +226,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
               {columns.map((col) => {
                 const hdTiming = col.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <th key={col.key} className="border border-border px-2 py-1 text-center text-[10px] text-muted-foreground font-normal">
+                  <th key={col.key} className="border border-border px-1 py-1 text-center text-[10px] text-muted-foreground font-normal">
                     {formatTimeShort(hdTiming?.end_time) ?? '–'}
                   </th>
                 )
@@ -314,7 +314,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                       : null
 
                     return (
-                      <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs" style={{ maxWidth: 130 }}>
+                      <td key={col.key} className="border border-border px-1 py-1.5 align-top text-center text-xs" style={{ maxWidth: 110 }}>
                         {sharedLabel ? (
                           <>
                             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight text-center">
@@ -386,7 +386,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                               </span>
                             </div>
                           )}
-                          <div className="flex-1 p-1.5 flex items-center justify-center">
+                          <div className="flex-1 px-1 py-1.5 flex items-center justify-center">
                             {contentNode}
                           </div>
                           {breakPosition === 'after' && (
@@ -398,7 +398,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                           )}
                         </div>
                       ) : (
-                        <div className="p-1.5 min-h-[48px] flex items-center justify-center">{contentNode}</div>
+                        <div className="px-1 py-1.5 min-h-[48px] flex items-center justify-center">{contentNode}</div>
                       )}
                     </td>
                   )
