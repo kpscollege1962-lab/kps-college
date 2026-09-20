@@ -169,7 +169,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
               <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
           </p>
-          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-lg text-foreground whitespace-nowrap">
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-[15px]  text-foreground whitespace-nowrap">
             SUBJECT WISE PERIOD DISTRIBUTION
           </p>
           {breakWindowList.length > 0 && (

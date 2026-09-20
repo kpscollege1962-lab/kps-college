@@ -135,7 +135,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
               <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
           </p>
-          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-lg text-foreground whitespace-nowrap">
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-[15px] text-foreground whitespace-nowrap">
             CLASS WISE PERIOD DISTRIBUTION
           </p>
           {breakWindowList.length > 0 && (
@@ -149,7 +149,19 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
           )}
         </div>
 
-        <table className="border-separate border-spacing-0 text-xs w-full">
+        {/* table-fixed + <colgroup>: the three sticky columns keep fixed
+            widths and every period column gets an equal share of the rest,
+            regardless of what's inside the cells. */}
+        <table className="border-separate border-spacing-0 text-xs w-full table-fixed">
+          <colgroup>
+            <col style={{ width: SERIAL_COL_WIDTH }} />
+            <col style={{ width: NAME_COL_WIDTH }} />
+            <col style={{ width: LABEL_COL_WIDTH }} />
+            {teachingPeriods.map((period) => (
+              <col key={period.id} />
+            ))}
+          </colgroup>
+
           <thead className="sticky top-0 z-10 bg-muted">
             {/* Row 1 — S.No / Class / Section headers (span all 4 rows) + period labels */}
             <tr>
@@ -223,7 +235,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                 const fdTiming = period.timings?.find((t) => t.config === 'full_day')
                 const hdTiming = period.timings?.find((t) => t.config === 'half_day')
                 return (
-                  <th className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
+                  <th key={period.id} className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
                     <div className="flex items-center justify-between">
                       <span>{formatDuration(fdTiming)}</span>
                       <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
@@ -309,29 +321,32 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
 
                     return (
                       <td key={period.id} className="border border-border align-top text-center relative">
-                        {breakPosition ? (
-                          <div className="absolute inset-0 flex min-h-[56px]">
-                            {breakPosition === 'before' && (
-                              <div className="w-6 bg-amber-500/10 border-r border-amber-500/40 flex items-center justify-center shrink-0">
-                                <span className="text-[9px] text-amber-600 dark:text-amber-400 rotate-90 whitespace-nowrap">
-                                  Break
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex-1 p-1.5 flex items-center justify-center">
-                              {contentNode}
-                            </div>
-                            {breakPosition === 'after' && (
-                              <div className="w-6 bg-blue-500/10 border-l border-blue-500/40 flex items-center justify-center shrink-0">
-                                <span className="text-[9px] text-blue-600 dark:text-blue-400 rotate-90 whitespace-nowrap">
-                                  Break
-                                </span>
-                              </div>
-                            )}
+                        {/* Break strips are overlays: they span the full cell height
+                            but take no space, so the content below stays in normal
+                            flow and the cell keeps its natural size. */}
+                        {breakPosition === 'before' && (
+                          <div className="absolute inset-y-0 left-0 w-6 bg-amber-500/10 border-r border-amber-500/40 flex items-center justify-center">
+                            <span className="text-[9px] text-amber-600 dark:text-amber-400 rotate-90 whitespace-nowrap">
+                              Break
+                            </span>
                           </div>
-                        ) : (
-                          <div className="p-1.5 min-h-[56px] flex items-center justify-center">{contentNode}</div>
                         )}
+                        {breakPosition === 'after' && (
+                          <div className="absolute inset-y-0 right-0 w-6 bg-blue-500/10 border-l border-blue-500/40 flex items-center justify-center">
+                            <span className="text-[9px] text-blue-600 dark:text-blue-400 rotate-90 whitespace-nowrap">
+                              Break
+                            </span>
+                          </div>
+                        )}
+                        {/* Content reserves room for the strip (pl-8 / pr-8 = 32px:
+                            24px strip + 8px gap) so text never runs under it. */}
+                        <div
+                          className={`p-1.5 min-h-[56px] flex items-center justify-center ${
+                            breakPosition === 'before' ? 'pl-8' : ''
+                          } ${breakPosition === 'after' ? 'pr-8' : ''}`}
+                        >
+                          {contentNode}
+                        </div>
                       </td>
                     )
                   })}

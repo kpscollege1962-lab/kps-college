@@ -156,7 +156,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
               <>Assembly: {formatRange(assemblyFd)} (Friday: {formatRange(assemblyFr)})</>
             )}
           </p>
-          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-sm text-foreground whitespace-nowrap">
+          <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-[15px]  text-foreground whitespace-nowrap">
             STAFF WISE TIMETABLE
           </p>
           {breakWindowList.length > 0 && (
