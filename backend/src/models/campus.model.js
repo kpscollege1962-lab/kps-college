@@ -34,6 +34,22 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 1,
     },
+
+    // ── Printed timetable branding ──────────────────────────────────────────
+    title_english_url:  { type: DataTypes.STRING(500), allowNull: true }, // Cloudinary URL
+    title_urdu_url:     { type: DataTypes.STRING(500), allowNull: true },
+    title_combined_url: { type: DataTypes.STRING(500), allowNull: true },
+    watermark_url:       { type: DataTypes.STRING(500), allowNull: true },
+    active_title_variant: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      comment: "'english' | 'urdu' | 'combined'",
+    },
+    footer_text: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Shown at the bottom of the printed timetable, e.g. "Principal\\nKPS & COLLEGE\\nKhwaza Khela Swat"',
+    },
   }, {
     tableName: 'campuses',
     timestamps: true,

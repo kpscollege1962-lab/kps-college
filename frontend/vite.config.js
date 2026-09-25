@@ -12,5 +12,8 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true,
+     proxy: {
+      '/uploads': 'http://localhost:5001',
+    },
   },
 })

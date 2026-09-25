@@ -1,6 +1,14 @@
 const { matchedData } = require('express-validator');
 const ApiResponse = require('../../../utils/ApiResponse');
-const { listCampuses, getCampusById, createCampus, updateCampus } = require('../services/campuses.service');
+const ApiError = require('../../../utils/ApiError');
+const {
+  listCampuses,
+  getCampusById,
+  createCampus,
+  updateCampus,
+  setBrandingImage,
+  clearBrandingImage,
+} = require('../services/campuses.service');
 
 // ── GET /campuses ──────────────────────────────────────────────────────────────
 
@@ -39,4 +47,26 @@ const updateCtrl = async (req, res) => {
   res.json(ApiResponse.success('Campus updated', { campus }));
 };
 
-module.exports = { list: listCtrl, getOne: getOneCtrl, create: createCtrl, update: updateCtrl };
+// ── POST /campuses/:id/branding/:field ─────────────────────────────────────────
+
+const uploadBrandingCtrl = async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'No image uploaded');
+  const campus = await setBrandingImage(parseInt(req.params.id), req.params.field, req.file);
+  res.json(ApiResponse.success('Image uploaded', { campus }));
+};
+
+// ── DELETE /campuses/:id/branding/:field ───────────────────────────────────────
+
+const removeBrandingCtrl = async (req, res) => {
+  const campus = await clearBrandingImage(parseInt(req.params.id), req.params.field);
+  res.json(ApiResponse.success('Image removed', { campus }));
+};
+
+module.exports = {
+  list: listCtrl,
+  getOne: getOneCtrl,
+  create: createCtrl,
+  update: updateCtrl,
+  uploadBranding: uploadBrandingCtrl,
+  removeBranding: removeBrandingCtrl,
+};

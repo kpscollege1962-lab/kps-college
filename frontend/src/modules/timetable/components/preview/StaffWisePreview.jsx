@@ -157,7 +157,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
             )}
           </p>
           <p className="absolute left-1/2 top-0 -translate-x-1/2 font-bold text-[15px]  text-foreground whitespace-nowrap">
-            STAFF WISE TIMETABLE
+            STAFF WISE PERIOD DISTRIBUTION
           </p>
           {breakWindowList.length > 0 && (
             <p className="text-right">

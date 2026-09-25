@@ -4,6 +4,7 @@ const loadAbility       = require('../../../middlewares/loadAbility');
 const requirePermission = require('../../../middlewares/requirePermission');
 const validate          = require('../../../middlewares/validate');
 const { listRules, idParamRules, createRules, updateRules } = require('../validators/campuses.validator');
+const { brandingUpload, checkField } = require('../middlewares/brandingUpload');
 const ctrl = require('../controllers/campuses.controller');
 
 const router = Router();
@@ -31,6 +32,23 @@ router.patch('/:id',
   requirePermission('update', 'Campus'),
   ctrl.update);
 
+// ── Branding images (title banners + watermark) ────────────────────────────────
+
+router.post('/:id/branding/:field',
+  authenticate, loadAbility,
+  idParamRules, validate,
+  requirePermission('update', 'Campus'),
+  brandingUpload,            // [checkField, multer] – field name in form-data: "file"
+  ctrl.uploadBranding);
+
+router.delete('/:id/branding/:field',
+  authenticate, loadAbility,
+  idParamRules, validate,
+  requirePermission('update', 'Campus'),
+  checkField,
+  ctrl.removeBranding);
+
+// ── Nested campus resources ────────────────────────────────────────────────────
 
 router.use('/:campusId/settings',   require('../../campus-settings/routes'));
 router.use('/:campusId/timetable/preview', require('../../timetable/routes/timetablePreview.routes'));
@@ -44,4 +62,5 @@ router.use('/:campusId/fee-heads',      require('../../fees/routes/feeHeads.rout
 router.use('/:campusId/fee-structures', require('../../fees/routes/feeStructures.routes'));
 router.use('/:campusId/fee-challans', require('../../fees/routes/feeChallans.routes'));
 router.use('/:campusId/fee-class-setup', require('../../fees/routes/classFeeAssignment.routes'));
+
 module.exports = router;

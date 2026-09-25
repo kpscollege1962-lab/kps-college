@@ -92,6 +92,11 @@ const updateRules = [
   body('is_active')
     .optional()
     .isIn([0, 1]).withMessage('Active Status must be 0 or 1'),
+    
+  body('active_title_variant').optional({ nullable: true }).isIn(['english', 'urdu', 'combined']),
+  body('active_title_variant').optional({ nullable: true }).isIn(['english', 'urdu', 'combined']),
+  body('footer_text').optional({ nullable: true }).isString().isLength({ max: 2000 }),
+
 ];
 
 module.exports = { listRules, idParamRules, createRules, updateRules };

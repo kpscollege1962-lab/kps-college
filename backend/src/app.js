@@ -6,8 +6,10 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middlewares/errorHandler');
+const path = require('path');
 
 const app = express();
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 app.use(helmet());
 app.use(cors());

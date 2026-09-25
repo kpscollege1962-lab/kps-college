@@ -1,21 +1,35 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useCampusSettings } from '@/modules/campus-settings/hooks/useCampusSettings'
+import { useCampusBranding } from '../hooks/useCampusBranding'
 
+// Radix <Select.Item> can't have an empty-string value, so "None" uses 'none'
+// in the UI and is stored as null in the DB.
 const TITLE_VARIANTS = [
+  { value: 'none',     label: 'None' },
   { value: 'english',  label: 'English Title' },
-  { value: 'urdu',      label: 'Urdu Title' },
-  { value: 'combined',  label: 'Urdu + English Title' },
+  { value: 'urdu',     label: 'Urdu Title' },
+  { value: 'combined', label: 'Urdu + English Title' },
 ]
 
-// One upload slot — shows a thumbnail if an image is already set, otherwise
-// an "Upload" button; a small × removes it (by patching the field to null
-// through the normal settings update, not a separate delete endpoint).
+const SLOTS = [
+  { key: 'title_english',  label: 'Title (English)' },
+  { key: 'title_urdu',     label: 'Title (Urdu)' },
+  { key: 'title_combined', label: 'Title (Urdu + English)' },
+  { key: 'watermark',      label: 'Watermark' },
+]
+
+// The backend serves /uploads from its own origin. In dev that is not the Vite
+// origin, so set VITE_API_ORIGIN=http://localhost:<backend-port> in frontend/.env
+// (or proxy /uploads in vite.config.js and leave the variable unset).
+const assetUrl = (p) =>
+  !p ? null : /^https?:\/\//i.test(p) ? p : `${import.meta.env.VITE_API_ORIGIN ?? ''}${p}`
+
+// One upload slot — thumbnail if an image exists, otherwise an "Upload" button.
 const BrandingImageSlot = ({ label, imageUrl, uploading, onUpload, onClear, disabled }) => {
   const inputRef = useRef(null)
 
@@ -61,112 +75,58 @@ const BrandingImageSlot = ({ label, imageUrl, uploading, onUpload, onClear, disa
             </Button>
           )}
         </div>
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={handleChange}
+        />
       </div>
     </div>
   )
 }
 
-// Shown only when editing an existing campus (needs a real campus id to
-// attach uploads to). Manages its own fetch/save cycle against the
-// campus-settings module — separate from the campus name/code/etc. fields
-// above it, which save through the parent CampusForm's own submit.
-const CampusBrandingSection = ({ campusId }) => {
-  const {
-    settings, loading, saving, saveError, uploadingField, uploadError,
-    fetchSettings, updateSettings, uploadBrandingImage,
-  } = useCampusSettings()
-
-  const [variant, setVariant] = useState('')
-  const [variantDirty, setVariantDirty] = useState(false)
-
-  useEffect(() => {
-    fetchSettings(campusId)
-  }, [campusId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (settings?.raw) {
-      setVariant(settings.raw.active_title_variant ?? '')
-      setVariantDirty(false)
-    }
-  }, [settings])
-
-  const handleUploadImage = (field, file) => uploadBrandingImage(campusId, field, file)
-
-  const handleClearImage = async (field) => {
-    const result = await updateSettings(campusId, { [field]: null })
-    if (result.success) fetchSettings(campusId)
-  }
-
-  const handleVariantSelect = (value) => {
-    setVariant(value)
-    setVariantDirty(true)
-  }
-
-  const handleSaveVariant = async () => {
-    const result = await updateSettings(campusId, { active_title_variant: variant })
-    if (result.success) {
-      setVariantDirty(false)
-      fetchSettings(campusId)
-    }
-  }
-
-  const resolved = settings?.resolved ?? {}
-
-  if (loading && !settings) {
-    return <p className="text-xs text-muted-foreground">Loading branding settings…</p>
-  }
+// Only rendered when editing an existing campus (uploads need a real campus id).
+// Images upload immediately; the active title is saved by the form's own submit.
+const CampusBrandingSection = ({ campus, variant, onVariantChange }) => {
+  const { branding, busyField, error, upload, clear } = useCampusBranding(campus.id, campus)
 
   return (
     <div className="space-y-4 border-t border-border pt-6">
       <div>
         <h3 className="text-sm font-semibold text-foreground">Printed Timetable Branding</h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Upload a title banner and watermark once here — they're applied automatically
-          on this campus's Timetable Preview print output.
+          Images upload immediately. The active title is saved with the form's Save Changes.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BrandingImageSlot
-          label="Title (English)"
-          imageUrl={resolved.title_english_url}
-          uploading={uploadingField === 'title_english_url'}
-          onUpload={(file) => handleUploadImage('title_english_url', file)}
-          onClear={() => handleClearImage('title_english_url')}
-        />
-        <BrandingImageSlot
-          label="Title (Urdu)"
-          imageUrl={resolved.title_urdu_url}
-          uploading={uploadingField === 'title_urdu_url'}
-          onUpload={(file) => handleUploadImage('title_urdu_url', file)}
-          onClear={() => handleClearImage('title_urdu_url')}
-        />
-        <BrandingImageSlot
-          label="Title (Urdu + English)"
-          imageUrl={resolved.title_combined_url}
-          uploading={uploadingField === 'title_combined_url'}
-          onUpload={(file) => handleUploadImage('title_combined_url', file)}
-          onClear={() => handleClearImage('title_combined_url')}
-        />
-        <BrandingImageSlot
-          label="Watermark"
-          imageUrl={resolved.watermark_url}
-          uploading={uploadingField === 'watermark_url'}
-          onUpload={(file) => handleUploadImage('watermark_url', file)}
-          onClear={() => handleClearImage('watermark_url')}
-        />
+        {SLOTS.map(({ key, label }) => (
+          <BrandingImageSlot
+            key={key}
+            label={label}
+            imageUrl={assetUrl(branding[`${key}_url`])}
+            uploading={busyField === key}
+            disabled={!!busyField}
+            onUpload={(file) => upload(key, file)}
+            onClear={() => clear(key)}
+          />
+        ))}
       </div>
 
-      {uploadError && (
+      {error && (
         <Alert variant="destructive">
-          <AlertDescription>{uploadError}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       <div className="space-y-1.5 sm:max-w-xs">
         <Label>Active Title on Printed Timetables</Label>
-        <Select value={variant} onValueChange={handleVariantSelect}>
+        <Select
+          value={variant || 'none'}
+          onValueChange={(v) => onVariantChange(v === 'none' ? '' : v)}
+        >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="None" />
           </SelectTrigger>
@@ -181,18 +141,6 @@ const CampusBrandingSection = ({ campusId }) => {
           variant that hasn't been uploaded yet will show nothing until you upload it.
         </p>
       </div>
-
-      {saveError && (
-        <Alert variant="destructive">
-          <AlertDescription>{saveError}</AlertDescription>
-        </Alert>
-      )}
-
-      <div>
-        <Button type="button" onClick={handleSaveVariant} disabled={!variantDirty || saving}>
-          {saving ? 'Saving…' : 'Save Changes'}
-        </Button>
-      </div>
     </div>
   )
 }
@@ -205,6 +153,7 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
     phone:     initialData?.phone     ?? '',
     email:     initialData?.email     ?? '',
     is_active: initialData?.is_active ?? 1,
+    active_title_variant: initialData?.active_title_variant ?? '',
   })
 
   const handleChange = (e) => {
@@ -221,6 +170,8 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
       phone:     form.phone.trim(),
       email:     form.email.trim(),
       is_active: form.is_active,
+      // only sent when editing an existing campus
+      ...(initialData?.id && { active_title_variant: form.active_title_variant || null }),
     })
   }
 
@@ -336,7 +287,13 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
       </div>
 
       {/* Branding only makes sense for a campus that already exists */}
-      {initialData?.id && <CampusBrandingSection campusId={initialData.id} />}
+      {initialData?.id && (
+        <CampusBrandingSection
+          campus={initialData}
+          variant={form.active_title_variant}
+          onVariantChange={(v) => setForm((prev) => ({ ...prev, active_title_variant: v }))}
+        />
+      )}
 
       {/* Error banner */}
       {error && (

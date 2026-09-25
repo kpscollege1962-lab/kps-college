@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowLeft, RefreshCw, Printer, Type, Image as ImageIcon, Droplets, X } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useSessionContext } from '@/shells/portal/hooks/useSessionContext'
@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTimetablePreview } from '../hooks/useTimetablePreview'
 import { usePrintScale } from '../hooks/usePrintScale'
+import { useCampusPrintBranding } from '../hooks/useCampusPrintBranding'
 import ClassWisePreview   from '../components/preview/ClassWisePreview'
 import StaffWisePreview   from '../components/preview/StaffWisePreview'
 import SubjectWisePreview from '../components/preview/SubjectWisePreview'
@@ -26,91 +27,6 @@ const ErrorState = ({ message }) => (
   <p className="text-center text-sm text-muted-foreground py-12">{message}</p>
 )
 
-// A file-picker button that shows a filled/active state once an image is set,
-// with a small clear (×) affordance to remove it without reopening the picker.
-const ImageUploadButton = ({ label, icon: Icon, imageUrl, onSelect, onClear }) => {
-  const inputRef = useRef(null)
-
-  const handleChange = (e) => {
-    const file = e.target.files?.[0]
-    if (file) onSelect(file)
-    e.target.value = '' // allow re-selecting the same file later
-  }
-
-  return (
-    <div className="flex items-center">
-      <Button
-        variant={imageUrl ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => inputRef.current?.click()}
-        className="gap-1.5 rounded-r-none"
-      >
-        <Icon className="h-3.5 w-3.5" />
-        {label}
-      </Button>
-      {imageUrl && (
-        <Button
-          variant="default"
-          size="icon-sm"
-          onClick={onClear}
-          className="rounded-l-none border-l border-primary-foreground/20"
-          title={`Remove ${label.toLowerCase()}`}
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleChange}
-      />
-    </div>
-  )
-}
-
-// Manages a single uploaded image, persisted as a data URL in localStorage
-// under the given key — survives page refreshes/browser restarts until the
-// person clears it or uploads a new one. Falls back to in-memory-only if
-// localStorage is unavailable or the image is too large to fit (quota
-// errors are swallowed — the upload still works for the current session,
-// it just won't survive a refresh).
-const useImageUpload = (storageKey) => {
-  const [url, setUrl] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) || null
-    } catch {
-      return null
-    }
-  })
-
-  const select = useCallback((file) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = reader.result
-      setUrl(dataUrl)
-      try {
-        localStorage.setItem(storageKey, dataUrl)
-      } catch {
-        // Quota exceeded or storage disabled — image still works this session
-      }
-    }
-    reader.readAsDataURL(file)
-  }, [storageKey])
-
-  const clear = useCallback(() => {
-    setUrl(null)
-    try {
-      localStorage.removeItem(storageKey)
-    } catch {
-      // ignore
-    }
-  }, [storageKey])
-
-  return { url, select, clear }
-}
-
 export default function TimetablePreviewPage() {
   const navigate = useNavigate()
 
@@ -122,11 +38,9 @@ export default function TimetablePreviewPage() {
 
   const [activeTab, setActiveTab] = useState('class')
 
-  // ── Print customization: title + watermark (local uploads) ──────────────────
-  // Temporary fallback while the Campus Settings-based branding feature is
-  // paused — persisted in localStorage so they survive a page refresh.
-  const titleImg     = useImageUpload('timetable-preview-title')
-  const watermarkImg = useImageUpload('timetable-preview-watermark')
+  // ── Print branding: title, watermark and footer come from the campus ────────
+  // Set on Campuses → Edit → "Printed Timetable Branding".
+  const { titleUrl, watermarkUrl, footerText } = useCampusPrintBranding(campusId)
 
   const {
     classData, classLoading, classError, fetchClassWise,
@@ -180,22 +94,6 @@ export default function TimetablePreviewPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <ImageUploadButton
-            label="Title"
-            icon={Type}
-            imageUrl={titleImg.url}
-            onSelect={titleImg.select}
-            onClear={titleImg.clear}
-          />
-
-          <ImageUploadButton
-            label="Watermark"
-            icon={Droplets}
-            imageUrl={watermarkImg.url}
-            onSelect={watermarkImg.select}
-            onClear={watermarkImg.clear}
-          />
-
           <Button variant="ghost" size="icon-sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -225,8 +123,9 @@ export default function TimetablePreviewPage() {
                     periods={classData.periods}
                     rows={classData.rows}
                     printRef={gridRef}
-                    titleUrl={titleImg.url}
-                    watermarkUrl={watermarkImg.url}
+                    titleUrl={titleUrl}
+                    watermarkUrl={watermarkUrl}
+                    footerText={footerText}
                   />
                 )
                 : null}
@@ -243,8 +142,9 @@ export default function TimetablePreviewPage() {
                     staff={staffData}
                     periods={classData?.periods ?? []}
                     printRef={gridRef}
-                    titleUrl={titleImg.url}
-                    watermarkUrl={watermarkImg.url}
+                    titleUrl={titleUrl}
+                    watermarkUrl={watermarkUrl}
+                    footerText={footerText}
                   />
                 )
                 : null}
@@ -261,8 +161,9 @@ export default function TimetablePreviewPage() {
                     subjects={subjectData}
                     periods={classData?.periods ?? []}
                     printRef={gridRef}
-                    titleUrl={titleImg.url}
-                    watermarkUrl={watermarkImg.url}
+                    titleUrl={titleUrl}
+                    watermarkUrl={watermarkUrl}
+                    footerText={footerText}
                   />
                 )
                 : null}
