@@ -1,5 +1,6 @@
 import PrintHeader from './Printheader.jsx'
 import PrintWatermark from './PrintWatermark.jsx'
+import PrintFooter from './PrintFooter.jsx'
 
 const formatTimeShort = (t) => {
   if (!t) return null
@@ -86,7 +87,7 @@ const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 78
 const LABEL_COL_WIDTH  = 44
 
-export default function ClassWisePreview({ periods, rows, printRef, titleUrl, watermarkUrl }) {
+export default function ClassWisePreview({ periods, rows, printRef, titleUrl, watermarkUrl, footerText }) {
   // The first period (by period_number) is Assembly — every class shows "—"
   // for it, so instead of a whole column of dashes, its timing is mentioned
   // once in a note above the table and it's excluded from the main columns.
@@ -364,6 +365,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
           </tbody>
         </table>
       </div>
+      <PrintFooter footerText={footerText} />
     </div>
   )
 }

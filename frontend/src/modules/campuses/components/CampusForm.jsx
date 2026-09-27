@@ -3,6 +3,7 @@ import { Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useCampusBranding } from '../hooks/useCampusBranding'
@@ -23,9 +24,8 @@ const SLOTS = [
   { key: 'watermark',      label: 'Watermark' },
 ]
 
-// The backend serves /uploads from its own origin. In dev that is not the Vite
-// origin, so set VITE_API_ORIGIN=http://localhost:<backend-port> in frontend/.env
-// (or proxy /uploads in vite.config.js and leave the variable unset).
+// Cloudinary URLs are already absolute and pass through unchanged. Only a plain
+// local path (old "/uploads/..." data, if any) gets VITE_API_ORIGIN prefixed.
 const assetUrl = (p) =>
   !p ? null : /^https?:\/\//i.test(p) ? p : `${import.meta.env.VITE_API_ORIGIN ?? ''}${p}`
 
@@ -88,8 +88,9 @@ const BrandingImageSlot = ({ label, imageUrl, uploading, onUpload, onClear, disa
 }
 
 // Only rendered when editing an existing campus (uploads need a real campus id).
-// Images upload immediately; the active title is saved by the form's own submit.
-const CampusBrandingSection = ({ campus, variant, onVariantChange }) => {
+// Images upload immediately; the active title and footer text are saved by the
+// form's own submit.
+const CampusBrandingSection = ({ campus, variant, onVariantChange, footerText, onFooterTextChange }) => {
   const { branding, busyField, error, upload, clear } = useCampusBranding(campus.id, campus)
 
   return (
@@ -97,7 +98,7 @@ const CampusBrandingSection = ({ campus, variant, onVariantChange }) => {
       <div>
         <h3 className="text-sm font-semibold text-foreground">Printed Timetable Branding</h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Images upload immediately. The active title is saved with the form's Save Changes.
+          Images upload immediately. The active title and footer are saved with the form's Save Changes.
         </p>
       </div>
 
@@ -128,7 +129,9 @@ const CampusBrandingSection = ({ campus, variant, onVariantChange }) => {
           onValueChange={(v) => onVariantChange(v === 'none' ? '' : v)}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="None" />
+            <SelectValue placeholder="None">
+              {TITLE_VARIANTS.find((v) => v.value === (variant || 'none'))?.label}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {TITLE_VARIANTS.map((v) => (
@@ -139,6 +142,19 @@ const CampusBrandingSection = ({ campus, variant, onVariantChange }) => {
         <p className="text-xs text-muted-foreground">
           Choose which uploaded title shows on the printed timetable header. Selecting a
           variant that hasn't been uploaded yet will show nothing until you upload it.
+        </p>
+      </div>
+
+      <div className="space-y-1.5 sm:max-w-sm">
+        <Label>Footer Text</Label>
+        <Textarea
+          value={footerText}
+          onChange={(e) => onFooterTextChange(e.target.value)}
+          rows={3}
+          placeholder={'Principal\nKPS & COLLEGE\nKhwaza Khela Swat'}
+        />
+        <p className="text-xs text-muted-foreground">
+          Shown at the bottom of the printed timetable. Each line break becomes a new line on the printout.
         </p>
       </div>
     </div>
@@ -154,6 +170,7 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
     email:     initialData?.email     ?? '',
     is_active: initialData?.is_active ?? 1,
     active_title_variant: initialData?.active_title_variant ?? '',
+    footer_text: initialData?.footer_text ?? '',
   })
 
   const handleChange = (e) => {
@@ -171,7 +188,10 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
       email:     form.email.trim(),
       is_active: form.is_active,
       // only sent when editing an existing campus
-      ...(initialData?.id && { active_title_variant: form.active_title_variant || null }),
+      ...(initialData?.id && {
+        active_title_variant: form.active_title_variant || null,
+        footer_text: form.footer_text.trim() || null,
+      }),
     })
   }
 
@@ -292,6 +312,8 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
           campus={initialData}
           variant={form.active_title_variant}
           onVariantChange={(v) => setForm((prev) => ({ ...prev, active_title_variant: v }))}
+          footerText={form.footer_text}
+          onFooterTextChange={(v) => setForm((prev) => ({ ...prev, footer_text: v }))}
         />
       )}
 

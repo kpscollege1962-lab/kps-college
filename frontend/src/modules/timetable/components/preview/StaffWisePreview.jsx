@@ -1,6 +1,6 @@
 import PrintHeader from './Printheader.jsx'
 import PrintWatermark from './PrintWatermark.jsx'
-
+import PrintFooter from './PrintFooter.jsx'
 const formatTimeShort = (t) => {
   if (!t) return null
   const [h, m] = t.split(':').map(Number)
@@ -94,8 +94,8 @@ const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 110
 const LABEL_COL_WIDTH  = 44
 
-export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl }) {
-  if (!staff || staff.length === 0) {
+export default function StaffWisePreview({ staff, periods, printRef, titleUrl, watermarkUrl, footerText }) {
+    if (!staff || staff.length === 0) {
     return (
       <p className="text-center text-sm text-muted-foreground py-12">
         No staff assignments found for the selected session.
@@ -409,6 +409,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
           </tbody>
         </table>
       </div>
+      <PrintFooter footerText={footerText} />
     </div>
   )
 }

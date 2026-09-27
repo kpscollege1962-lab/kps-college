@@ -95,7 +95,12 @@ const updateRules = [
     
   body('active_title_variant').optional({ nullable: true }).isIn(['english', 'urdu', 'combined']),
   body('active_title_variant').optional({ nullable: true }).isIn(['english', 'urdu', 'combined']),
+  body('active_title_variant').optional({ nullable: true }).isIn(['english', 'urdu', 'combined']),
   body('footer_text').optional({ nullable: true }).isString().isLength({ max: 2000 }),
+ 
+
+  body('footer_text').optional({ nullable: true }).isString().isLength({ max: 2000 }),
+  
 
 ];
 

@@ -1,5 +1,6 @@
 import PrintHeader from './Printheader.jsx'
 import PrintWatermark from './PrintWatermark.jsx'
+import PrintFooter from './PrintFooter.jsx'
 
 const formatTimeShort = (t) => {
   if (!t) return null
@@ -83,8 +84,8 @@ const SERIAL_COL_WIDTH = 32
 const NAME_COL_WIDTH   = 95
 const LABEL_COL_WIDTH  = 44
 
-export default function SubjectWisePreview({ subjects, periods, printRef, titleUrl, watermarkUrl }) {
-  if (!subjects || subjects.length === 0) {
+export default function SubjectWisePreview({ subjects, periods, printRef, titleUrl, watermarkUrl, footerText }) {
+    if (!subjects || subjects.length === 0) {
     return (
       <p className="text-center text-sm text-muted-foreground py-12">
         No subject assignments found for the selected session.
@@ -445,6 +446,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
           </div>
         )}
       </div>
+      <PrintFooter footerText={footerText} />
     </div>
   )
 }
