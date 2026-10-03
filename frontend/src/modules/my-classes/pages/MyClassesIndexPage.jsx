@@ -63,7 +63,7 @@ export default function MyClassesIndexPage() {
                     {ACADEMIC_LEVEL_LABEL[cls.academicLevel] ?? cls.academicLevel}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{cls.subjects.join(', ')}</p>
+                <p className="text-xs text-muted-foreground truncate">{cls.subjects.map(s => s.name).join(', ')}</p>
               </div>
               <Users className="size-4 text-muted-foreground shrink-0" />
             </Link>

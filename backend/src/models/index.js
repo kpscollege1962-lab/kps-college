@@ -35,6 +35,8 @@ const defineFeeStructure   = require('./feeStructure.model');
 const defineFeeChallan     = require('./feeChallan.model');
 const defineFeeChallanItem = require('./feeChallanItem.model');
 const defineFeePayment     = require('./feePayment.model');
+const defineHomework           = require('./homework.model');
+const defineHomeworkSubmission = require('./homeworkSubmission.model');
 
 // ── Initialize models ─────────────────────────────────────────────────────────
 const User               = defineUser(sequelize);
@@ -71,6 +73,8 @@ const FeeStructure   = defineFeeStructure(sequelize);
 const FeeChallan     = defineFeeChallan(sequelize);
 const FeeChallanItem = defineFeeChallanItem(sequelize);
 const FeePayment     = defineFeePayment(sequelize);
+const Homework           = defineHomework(sequelize);
+const HomeworkSubmission = defineHomeworkSubmission(sequelize);
 
 // ── Register & export ─────────────────────────────────────────────────────────
 const db = {
@@ -109,6 +113,8 @@ const db = {
   FeeChallan,
   FeeChallanItem,
   FeePayment,
+  Homework,
+  HomeworkSubmission,
 };
 
 // ── Wire up associations (runs after all models are loaded) ───────────────────

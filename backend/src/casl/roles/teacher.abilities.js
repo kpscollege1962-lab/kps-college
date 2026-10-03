@@ -4,4 +4,5 @@ module.exports = (can, _cannot) => {
   can('update', 'Attendance', { scope: 'own' });   // edit a draft register / save progress
   can('submit', 'Attendance', { scope: 'own' });   // submit a draft register (lock it)
   can('read',   'Enrollment');
+  can('manage', 'Homework');
 };

@@ -2,7 +2,6 @@ const { Op } = require('sequelize');
 const { Staff, TimetableSlot, ClassGroup, Section, Subject, AcademicSession } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
 
-// ── Resolve the logged-in user's own Staff record ──────────────────────────────
 const getMyStaffRecord = async (userId) => {
   const staff = await Staff.findOne({ where: { user_id: userId } });
   if (!staff) throw new ApiError(403, 'No staff record is linked to this account');
@@ -10,8 +9,9 @@ const getMyStaffRecord = async (userId) => {
 };
 
 // ── List distinct classes/sections this teacher teaches, derived from the ─────
-// timetable (staff_id_1 or staff_id_2 on any slot), scoped to the given campus
-// and the current active session. Groups subjects taught per class/section.
+// timetable. Each class now carries its subjects as {id, name} pairs (not just
+// names), so the frontend can use them directly for subject-scoped actions
+// like posting homework, without a second lookup.
 const listMyTeachingClasses = async (userId, campusId) => {
   const staff = await getMyStaffRecord(userId);
 
@@ -46,16 +46,26 @@ const listMyTeachingClasses = async (userId, campusId) => {
         academicLevel: slot.classGroup.academic_level,
         sectionId: slot.section.id,
         sectionName: slot.section.name,
-        subjects: new Set(),
+        subjectsById: new Map(), // id -> name, dedupes correctly unlike a Set of names
       });
     }
     const entry = byKey.get(key);
-    if (slot.staff_id_1 === staff.id && slot.subject1) entry.subjects.add(slot.subject1.name);
-    if (slot.staff_id_2 === staff.id && slot.subject2) entry.subjects.add(slot.subject2.name);
+    if (slot.staff_id_1 === staff.id && slot.subject1) entry.subjectsById.set(slot.subject1.id, slot.subject1.name);
+    if (slot.staff_id_2 === staff.id && slot.subject2) entry.subjectsById.set(slot.subject2.id, slot.subject2.name);
   }
 
   return [...byKey.values()]
-    .map((entry) => ({ ...entry, subjects: [...entry.subjects].sort() }))
+    .map((entry) => ({
+      classGroupId: entry.classGroupId,
+      className: entry.className,
+      level: entry.level,
+      academicLevel: entry.academicLevel,
+      sectionId: entry.sectionId,
+      sectionName: entry.sectionName,
+      subjects: [...entry.subjectsById.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }))
     .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (a.sectionName ?? '').localeCompare(b.sectionName ?? ''));
 };
 

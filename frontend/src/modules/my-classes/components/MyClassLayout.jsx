@@ -7,7 +7,7 @@ import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
 
 const TABS = [
   { path: 'students', label: 'Students' },
-  // more tabs later: homework, quizzes, attendance, marks...
+  { path: 'homework', label: 'Homework' },
 ]
 
 export default function MyClassLayout() {
@@ -35,7 +35,7 @@ export default function MyClassLayout() {
           <h1 className="text-2xl font-bold tracking-tight">
             {current ? `${current.className}${current.sectionName ? ` — ${current.sectionName}` : ''}` : 'Class'}
           </h1>
-          {current && <p className="text-sm text-muted-foreground mt-0.5">{current.subjects.join(', ')}</p>}
+          {current && <p className="text-sm text-muted-foreground mt-0.5">{current.subjects.map(s => s.name).join(', ')}</p>}
         </div>
       </div>
 

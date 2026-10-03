@@ -63,4 +63,6 @@ router.use('/:campusId/fee-structures', require('../../fees/routes/feeStructures
 router.use('/:campusId/fee-challans', require('../../fees/routes/feeChallans.routes'));
 router.use('/:campusId/fee-class-setup', require('../../fees/routes/classFeeAssignment.routes'));
 
+router.use('/:campusId/homework', require('../../homework/routes/homework.routes'));
+
 module.exports = router;
