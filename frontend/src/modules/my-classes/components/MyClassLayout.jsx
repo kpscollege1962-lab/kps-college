@@ -7,9 +7,8 @@ import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
 
 const TABS = [
   { path: 'students', label: 'Students' },
-  { path: 'homework', label: 'Homework' },
+  { path: 'homework', label: 'Assignments' },
 ]
-
 export default function MyClassLayout() {
   const { classGroupId, sectionId } = useParams()
   const { activeRole } = useRoleContext()

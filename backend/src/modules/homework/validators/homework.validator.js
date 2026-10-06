@@ -20,6 +20,7 @@ const createRules = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 200 }),
   body('description').optional({ values: 'falsy' }).trim(),
   body('dueDate').isISO8601().withMessage('A valid dueDate is required'),
+  body('type').isIn(['homework', 'classwork']).withMessage('type must be homework or classwork'),
 ];
 
 const updateRules = [
@@ -27,6 +28,7 @@ const updateRules = [
   body('title').optional({ values: 'falsy' }).trim().notEmpty().isLength({ max: 200 }),
   body('description').optional({ values: 'falsy' }).trim(),
   body('dueDate').optional().isISO8601(),
+  body('type').optional().isIn(['homework', 'classwork']),
 ];
 
 module.exports = { homeworkIdParamRules, listRules, createRules, updateRules };

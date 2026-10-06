@@ -35,7 +35,7 @@ const listHomework = async ({ campusId, sessionId, classGroupId, sectionId, page
 };
 
 // ── Create homework (optional file attachment) ──────────────────────────────
-const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, subjectId, staffId, title, description, dueDate, file }) => {
+const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, subjectId, staffId, type, title, description, dueDate, file }) => {
   let attachment = {};
   if (file) {
     const result = await uploadBufferToCloudinary(file.buffer, CLOUDINARY_FOLDER);
@@ -53,6 +53,7 @@ const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, su
     section_id: sectionId,
     subject_id: subjectId,
     staff_id: staffId,
+    type,
     title,
     description,
     due_date: dueDate,
@@ -63,7 +64,7 @@ const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, su
 };
 
 // ── Update homework (optionally replace the attachment) ─────────────────────
-const updateHomework = async (homeworkId, campusId, { title, description, dueDate, file }) => {
+const updateHomework = async (homeworkId, campusId, { title, description, dueDate, type, file }) => {
   const homework = await getHomeworkById(homeworkId, campusId);
 
   let attachment = {};
@@ -83,6 +84,7 @@ const updateHomework = async (homeworkId, campusId, { title, description, dueDat
     ...(title       !== undefined && { title }),
     ...(description !== undefined && { description }),
     ...(dueDate      !== undefined && { due_date: dueDate }),
+    ...(type          !== undefined && { type }),
     ...attachment,
   });
 

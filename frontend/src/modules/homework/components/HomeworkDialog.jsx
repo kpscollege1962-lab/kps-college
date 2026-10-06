@@ -7,11 +7,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
+const TYPE_OPTIONS = [
+  { value: 'homework', label: 'Homework' },
+  { value: 'classwork', label: 'Classwork' },
+]
+
 export default function HomeworkDialog({ open, onOpenChange, subjects, initialData, onSubmit, saving, error }) {
   const [title, setTitle]           = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate]       = useState('')
   const [subjectId, setSubjectId]   = useState('')
+  const [type, setType]             = useState('homework')
   const [file, setFile]             = useState(null)
   const isEdit = !!initialData
 
@@ -20,7 +26,15 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
       setTitle(initialData?.title ?? '')
       setDescription(initialData?.description ?? '')
       setDueDate(initialData?.due_date ?? '')
-      setSubjectId(initialData?.subject?.id ? String(initialData.subject.id) : '')
+      setType(initialData?.type ?? 'homework')
+      // Auto-select when there's only one subject to choose from — nothing to decide.
+      setSubjectId(
+        initialData?.subject?.id
+          ? String(initialData.subject.id)
+          : subjects.length === 1
+            ? String(subjects[0].id)
+            : ''
+      )
       setFile(null)
     }
   }, [open, initialData, subjects])
@@ -31,6 +45,7 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
     formData.append('title', title)
     formData.append('description', description)
     formData.append('dueDate', dueDate)
+    formData.append('type', type)
     if (!isEdit) formData.append('subjectId', subjectId)
     if (file) formData.append('attachment', file)
     onSubmit(formData)
@@ -40,11 +55,27 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Homework' : 'Post Homework'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Assignment' : 'Post Assignment'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+          <div className="space-y-1.5">
+            <Label>Type</Label>
+            <Select value={type} onValueChange={setType} disabled={saving}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type">
+                  {(value) => TYPE_OPTIONS.find((t) => t.value === value)?.label ?? 'Select type'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {TYPE_OPTIONS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {!isEdit && (
             <div className="space-y-1.5">
@@ -88,7 +119,7 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
             <Button type="submit" disabled={saving || !title.trim() || !dueDate || (!isEdit && !subjectId)}>
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Homework'}
+              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Assignment'}
             </Button>
           </DialogFooter>
         </form>

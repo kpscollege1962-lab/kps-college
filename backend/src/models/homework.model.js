@@ -42,6 +42,11 @@ module.exports = (sequelize) => {
       onDelete: 'RESTRICT',
       onUpdate: 'CASCADE',
     },
+        type: {
+      type: DataTypes.ENUM('homework', 'classwork'),
+      allowNull: false,
+      defaultValue: 'homework',
+    },
     staff_id: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,

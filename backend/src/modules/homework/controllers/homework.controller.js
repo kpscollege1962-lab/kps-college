@@ -34,26 +34,20 @@ const getOneCtrl = async (req, res) => {
 
 const createCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
-  const { sessionId, classGroupId, sectionId, subjectId, title, description, dueDate } = matchedData(req, { locations: ['body'] });
-  const staffId = await resolveStaffId(req.user.id);
+  const { sessionId, classGroupId, sectionId, subjectId, type, title, description, dueDate } = matchedData(req, { locations: ['body'] });  const staffId = await resolveStaffId(req.user.id);
   const homework = await createHomework({
-    campusId,
-    sessionId: parseInt(sessionId),
-    classGroupId: parseInt(classGroupId),
-    sectionId: parseInt(sectionId),
-    subjectId: parseInt(subjectId),
-    staffId,
-    title, description, dueDate,
-    file: req.file,
-  });
+  campusId, sessionId: parseInt(sessionId), classGroupId: parseInt(classGroupId),
+  sectionId: parseInt(sectionId), subjectId: parseInt(subjectId), staffId,
+  type, title, description, dueDate, file: req.file,
+});
   res.status(201).json(ApiResponse.success('Homework posted', { homework }));
 };
 
 const updateCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
   const homeworkId = parseInt(req.params.homeworkId);
-  const { title, description, dueDate } = matchedData(req, { locations: ['body'] });
-  const homework = await updateHomework(homeworkId, campusId, { title, description, dueDate, file: req.file });
+  const { title, description, dueDate, type } = matchedData(req, { locations: ['body'] });
+  const homework = await updateHomework(homeworkId, campusId, { title, description, dueDate, type, file: req.file });
   res.json(ApiResponse.success('Homework updated', { homework }));
 };
 
