@@ -13,6 +13,37 @@ import HomeworkDialog from '@/modules/homework/components/HomeworkDialog'
 import SubmissionsDialog from '@/modules/homework/components/SubmissionsDialog'
 import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialog'
 
+const SECTION_LABEL = { homework: 'Homework', classwork: 'Classwork' }
+
+function AssignmentCard({ hw, onViewSubmissions, onEdit, onDelete }) {
+  return (
+    <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm">{hw.title}</span>
+            <Badge variant="outline" className="text-xs">{hw.subject?.name}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button size="icon-sm" variant="ghost" onClick={() => onViewSubmissions(hw)}><Users className="size-3.5" /></Button>
+          <Button size="icon-sm" variant="ghost" onClick={() => onEdit(hw)}><Pencil className="size-3.5" /></Button>
+          <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => onDelete(hw)}><Trash2 className="size-3.5" /></Button>
+        </div>
+      </div>
+      {hw.description && <p className="text-sm text-muted-foreground">{hw.description}</p>}
+      {hw.attachment_url && (
+        <a href={hw.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+          <Paperclip className="size-3" />{hw.attachment_original_name ?? 'Attachment'}
+        </a>
+      )}
+    </div>
+  )
+}
+
 export default function MyClassHomeworkPage() {
   const { classGroupId, sectionId } = useParams()
   const { activeRole } = useRoleContext()
@@ -56,14 +87,16 @@ export default function MyClassHomeworkPage() {
   }
 
   const isEmpty = !loading && !error && homework.length === 0
+  const homeworkItems  = homework.filter((hw) => hw.type === 'homework')
+  const classworkItems = homework.filter((hw) => hw.type === 'classwork')
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${total} homework post${total !== 1 ? 's' : ''}`}</p>
-        <Button size="sm" onClick={openCreate} disabled={saving || subjects.length === 0}>
+        <p className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${total} assignment${total !== 1 ? 's' : ''}`}</p>
+        <Button size="sm" onClick={openCreate} disabled={saving}>
           <Plus className="size-3.5 mr-1.5" />
-          Post Homework
+          Post Assignment
         </Button>
       </div>
 
@@ -72,36 +105,33 @@ export default function MyClassHomeworkPage() {
 
       {isEmpty && (
         <div className="flex flex-col items-center justify-center gap-2 py-16 border border-dashed border-border rounded-2xl">
-          <p className="text-sm font-medium text-foreground">No homework posted yet</p>
+          <p className="text-sm font-medium text-foreground">No assignments posted yet</p>
         </div>
       )}
 
       {!loading && !error && homework.length > 0 && (
-        <div className="space-y-3">
-          {homework.map((hw) => (
-            <div key={hw.id} className="bg-card border border-border rounded-2xl p-4 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm">{hw.title}</span>
-                    <Badge variant="outline" className="text-xs">{hw.subject?.name}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                </div>
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <Button size="icon-sm" variant="ghost" onClick={() => setSubmissionsFor(hw)}><Users className="size-3.5" /></Button>
-                  <Button size="icon-sm" variant="ghost" onClick={() => openEdit(hw)}><Pencil className="size-3.5" /></Button>
-                  <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(hw)}><Trash2 className="size-3.5" /></Button>
-                </div>
-              </div>
-              {hw.description && <p className="text-sm text-muted-foreground">{hw.description}</p>}
-              {hw.attachment_url && (
-                <a href={hw.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                  <Paperclip className="size-3" />{hw.attachment_original_name ?? 'Attachment'}
-                </a>
-              )}
+        <div className="space-y-6">
+          {homeworkItems.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {SECTION_LABEL.homework} ({homeworkItems.length})
+              </h2>
+              {homeworkItems.map((hw) => (
+                <AssignmentCard key={hw.id} hw={hw} onViewSubmissions={setSubmissionsFor} onEdit={openEdit} onDelete={setDeleteTarget} />
+              ))}
             </div>
-          ))}
+          )}
+
+          {classworkItems.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {SECTION_LABEL.classwork} ({classworkItems.length})
+              </h2>
+              {classworkItems.map((hw) => (
+                <AssignmentCard key={hw.id} hw={hw} onViewSubmissions={setSubmissionsFor} onEdit={openEdit} onDelete={setDeleteTarget} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -125,7 +155,7 @@ export default function MyClassHomeworkPage() {
       <DeleteConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Homework"
+        title="Delete Assignment"
         description={`"${deleteTarget?.title}" and all student submissions will be permanently removed.`}
         onConfirm={async () => {
           const result = await deleteHomework(deleteTarget.id, params)

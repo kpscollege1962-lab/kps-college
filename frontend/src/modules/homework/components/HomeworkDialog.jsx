@@ -11,23 +11,28 @@ const TYPE_OPTIONS = [
   { value: 'homework', label: 'Homework' },
   { value: 'classwork', label: 'Classwork' },
 ]
+const TYPE_LABEL = { homework: 'Homework', classwork: 'Classwork' }
+
+const getTomorrowDateString = () => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+}
 
 export default function HomeworkDialog({ open, onOpenChange, subjects, initialData, onSubmit, saving, error }) {
-  const [title, setTitle]           = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate]       = useState('')
   const [subjectId, setSubjectId]   = useState('')
   const [type, setType]             = useState('homework')
   const [file, setFile]             = useState(null)
   const isEdit = !!initialData
+  const minDate = getTomorrowDateString()
 
   useEffect(() => {
     if (open) {
-      setTitle(initialData?.title ?? '')
       setDescription(initialData?.description ?? '')
-      setDueDate(initialData?.due_date ?? '')
+      setDueDate(initialData?.due_date ?? getTomorrowDateString())
       setType(initialData?.type ?? 'homework')
-      // Auto-select when there's only one subject to choose from — nothing to decide.
       setSubjectId(
         initialData?.subject?.id
           ? String(initialData.subject.id)
@@ -39,10 +44,16 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
     }
   }, [open, initialData, subjects])
 
+  const subjectName = isEdit
+    ? initialData?.subject?.name
+    : subjects.find((s) => String(s.id) === subjectId)?.name
+
+  const computedTitle = subjectName ? `${subjectName} ${TYPE_LABEL[type]}` : TYPE_LABEL[type]
+
   const handleSubmit = (e) => {
     e.preventDefault()
     const formData = new FormData()
-    formData.append('title', title)
+    formData.append('title', computedTitle)
     formData.append('description', description)
     formData.append('dueDate', dueDate)
     formData.append('type', type)
@@ -96,18 +107,20 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="hw-title">Title</Label>
-            <Input id="hw-title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={saving} autoFocus />
-          </div>
-
-          <div className="space-y-1.5">
             <Label htmlFor="hw-desc">Description</Label>
             <Textarea id="hw-desc" value={description} onChange={(e) => setDescription(e.target.value)} disabled={saving} rows={3} />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="hw-due">Due Date</Label>
-            <Input id="hw-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={saving} />
+            <Input
+              id="hw-due"
+              type="date"
+              value={dueDate}
+              min={minDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              disabled={saving}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -118,7 +131,7 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button type="submit" disabled={saving || !title.trim() || !dueDate || (!isEdit && !subjectId)}>
+            <Button type="submit" disabled={saving || !dueDate || (!isEdit && !subjectId)}>
               {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Assignment'}
             </Button>
           </DialogFooter>
