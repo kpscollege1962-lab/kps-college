@@ -1,8 +1,8 @@
 const { matchedData } = require('express-validator');
 const ApiResponse = require('../../../utils/ApiResponse');
+const ApiError = require('../../../utils/ApiError');
 const { listHomework, getHomeworkById, createHomework, updateHomework, deleteHomework } = require('../services/homework.service');
 const { Staff } = require('../../../models');
-const ApiError = require('../../../utils/ApiError');
 
 // Resolve the acting teacher's Staff record from the JWT user — never trust a client-supplied staffId.
 const resolveStaffId = async (userId) => {
@@ -13,12 +13,22 @@ const resolveStaffId = async (userId) => {
 
 const listCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
-  const { sessionId, classGroupId, sectionId, page, limit } = matchedData(req, { locations: ['query'] });
+  const { sessionId, classGroupId, sectionId, dueDate, mine, page, limit } = matchedData(req, { locations: ['query'] });
+
+  // Without `mine`, a class and section are still required, so nobody can
+  // list every post in the campus.
+  if (!mine && (!classGroupId || !sectionId)) {
+    throw new ApiError(422, 'classGroupId and sectionId are required');
+  }
+
+  const staffId = mine ? await resolveStaffId(req.user.id) : undefined;
   const result = await listHomework({
     campusId,
     sessionId: parseInt(sessionId),
-    classGroupId: parseInt(classGroupId),
-    sectionId: parseInt(sectionId),
+    classGroupId: classGroupId ? parseInt(classGroupId) : undefined,
+    sectionId: sectionId ? parseInt(sectionId) : undefined,
+    dueDate,
+    staffId,
     page: page ? parseInt(page) : 1,
     limit: limit ? parseInt(limit) : 20,
   });
@@ -34,12 +44,22 @@ const getOneCtrl = async (req, res) => {
 
 const createCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
-  const { sessionId, classGroupId, sectionId, subjectId, type, title, description, dueDate } = matchedData(req, { locations: ['body'] });  const staffId = await resolveStaffId(req.user.id);
+  const { sessionId, classGroupId, sectionId, subjectId, type, title, description, dueDate } =
+    matchedData(req, { locations: ['body'] });
+  const staffId = await resolveStaffId(req.user.id);
   const homework = await createHomework({
-  campusId, sessionId: parseInt(sessionId), classGroupId: parseInt(classGroupId),
-  sectionId: parseInt(sectionId), subjectId: parseInt(subjectId), staffId,
-  type, title, description, dueDate, file: req.file,
-});
+    campusId,
+    sessionId: parseInt(sessionId),
+    classGroupId: parseInt(classGroupId),
+    sectionId: parseInt(sectionId),
+    subjectId: parseInt(subjectId),
+    staffId,
+    type,
+    title,
+    description,
+    dueDate,
+    file: req.file,
+  });
   res.status(201).json(ApiResponse.success('Homework posted', { homework }));
 };
 

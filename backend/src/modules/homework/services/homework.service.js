@@ -1,4 +1,4 @@
-const { Homework, HomeworkSubmission, Subject, ClassGroup, Section, Staff, Enrollment } = require('../../../models');
+const { Homework, HomeworkSubmission, Subject, ClassGroup, Section, Staff } = require('../../../models');
 const { uploadBufferToCloudinary, deleteFromCloudinary } = require('../../../utils/cloudinaryUpload');
 const ApiError = require('../../../utils/ApiError');
 
@@ -18,11 +18,18 @@ const getHomeworkById = async (homeworkId, campusId) => {
   return homework;
 };
 
-// ── List homework for a class/section (teacher's own posts, or a student's class) ──
-const listHomework = async ({ campusId, sessionId, classGroupId, sectionId, page = 1, limit = 20 }) => {
+// ── List homework. With no class/section given, returns everything matching the
+// other filters (the controller only allows that for a teacher's own posts). ──
+const listHomework = async ({ campusId, sessionId, classGroupId, sectionId, dueDate, staffId, page = 1, limit = 20 }) => {
+  const where = { campus_id: campusId, session_id: sessionId };
+  if (classGroupId) where.class_group_id = classGroupId;
+  if (sectionId)    where.section_id = sectionId;
+  if (dueDate)      where.due_date = dueDate;
+  if (staffId)      where.staff_id = staffId;
+
   const offset = (page - 1) * limit;
   const { count, rows } = await Homework.findAndCountAll({
-    where: { campus_id: campusId, session_id: sessionId, class_group_id: classGroupId, section_id: sectionId },
+    where,
     include: [
       { model: Subject, as: 'subject' },
       { model: Staff, as: 'postedBy', attributes: ['id', 'full_name'] },
@@ -64,14 +71,14 @@ const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, su
 };
 
 // ── Update homework (optionally replace the attachment) ─────────────────────
+// Order: upload the new file, save the row, THEN remove the old file, so a
+// failure part-way never leaves the row pointing at a deleted file.
 const updateHomework = async (homeworkId, campusId, { title, description, dueDate, type, file }) => {
   const homework = await getHomeworkById(homeworkId, campusId);
+  const oldPublicId = homework.attachment_public_id;
 
   let attachment = {};
   if (file) {
-    if (homework.attachment_public_id) {
-      await deleteFromCloudinary(homework.attachment_public_id);
-    }
     const result = await uploadBufferToCloudinary(file.buffer, CLOUDINARY_FOLDER);
     attachment = {
       attachment_url: result.secure_url,
@@ -88,24 +95,29 @@ const updateHomework = async (homeworkId, campusId, { title, description, dueDat
     ...attachment,
   });
 
+  if (file && oldPublicId) await deleteFromCloudinary(oldPublicId);
+
   return getHomeworkById(homeworkId, campusId);
 };
 
-// ── Delete homework (cleans up Cloudinary attachment + cascades submissions) ─
+// ── Delete homework ─────────────────────────────────────────────────────────
+// Delete the DB row first (submissions cascade at the DB level), then clean up
+// Cloudinary best-effort. A Cloudinary hiccup must never stop a teacher deleting.
 const deleteHomework = async (homeworkId, campusId) => {
   const homework = await getHomeworkById(homeworkId, campusId);
 
-  // Also clean up every submission's file, since HomeworkSubmission cascades
-  // at the DB level but Cloudinary assets are not cleaned up automatically.
-  const submissions = await HomeworkSubmission.findAll({ where: { homework_id: homeworkId } });
-  for (const sub of submissions) {
-    await deleteFromCloudinary(sub.file_public_id);
-  }
-  if (homework.attachment_public_id) {
-    await deleteFromCloudinary(homework.attachment_public_id);
-  }
+  const submissions = await HomeworkSubmission.findAll({
+    where: { homework_id: homeworkId },
+    attributes: ['file_public_id'],
+  });
+  const publicIds = [
+    homework.attachment_public_id,
+    ...submissions.map((s) => s.file_public_id),
+  ].filter(Boolean);
 
   await homework.destroy();
+
+  await Promise.all(publicIds.map((id) => deleteFromCloudinary(id)));
 };
 
 module.exports = { listHomework, getHomeworkById, createHomework, updateHomework, deleteHomework };

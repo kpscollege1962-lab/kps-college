@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { getTomorrowDateString } from '@/lib/dateUtils'
 
 const TYPE_OPTIONS = [
   { value: 'homework', label: 'Homework' },
@@ -13,11 +14,11 @@ const TYPE_OPTIONS = [
 ]
 const TYPE_LABEL = { homework: 'Homework', classwork: 'Classwork' }
 
-const getTomorrowDateString = () => {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
-}
+// const getTomorrowDateString = () => {
+//   const d = new Date()
+//   d.setDate(d.getDate() + 1)
+//   return d.toISOString().split('T')[0]
+// }
 
 export default function HomeworkDialog({ open, onOpenChange, subjects, initialData, onSubmit, saving, error }) {
   const [description, setDescription] = useState('')
@@ -26,7 +27,8 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
   const [type, setType]             = useState('homework')
   const [file, setFile]             = useState(null)
   const isEdit = !!initialData
-  const minDate = getTomorrowDateString()
+  const tomorrow = getTomorrowDateString()
+  const minDate = isEdit && initialData?.due_date && initialData.due_date < tomorrow ? initialData.due_date : tomorrow
 
   useEffect(() => {
     if (open) {

@@ -1,11 +1,16 @@
 import { Link } from 'react-router'
-import { useEffect } from 'react'
-import { Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Users, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useAuth } from '@/modules/auth/hooks/useAuth'
 import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
+import { useSessionContext } from '@/shells/portal/hooks/useSessionContext'
 import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
+import HomeworkReportDialog from '@/modules/homework/components/HomeworkReportDialog'
+import { getTomorrowDateString } from '@/lib/dateUtils'
 
 const ACADEMIC_LEVEL_LABEL = {
   pre_primary: 'Pre-Primary', primary: 'Primary', middle: 'Middle',
@@ -13,18 +18,24 @@ const ACADEMIC_LEVEL_LABEL = {
 }
 
 export default function MyClassesIndexPage() {
+  const { user } = useAuth()
   const { activeRole } = useRoleContext()
+  const { activeSession } = useSessionContext()
   const campusId = activeRole?.campusId
+  const sessionId = activeSession?.id
+
   const { classes, loading, error, fetchClasses } = useMyTeachingClasses(campusId)
+  const [reportOpen, setReportOpen] = useState(false)
 
   useEffect(() => {
     if (campusId) fetchClasses()
   }, [campusId, fetchClasses])
 
   const isEmpty = !loading && !error && classes.length === 0
+  const userFullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ')
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Classes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -63,13 +74,30 @@ export default function MyClassesIndexPage() {
                     {ACADEMIC_LEVEL_LABEL[cls.academicLevel] ?? cls.academicLevel}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{cls.subjects.map(s => s.name).join(', ')}</p>
+                <p className="text-xs text-muted-foreground truncate">{cls.subjects.map((s) => s.name).join(', ')}</p>
               </div>
               <Users className="size-4 text-muted-foreground shrink-0" />
             </Link>
           ))}
         </div>
       )}
+
+      <div className="mt-auto flex justify-end pt-2">
+        <Button size="sm" variant="outline" onClick={() => setReportOpen(true)} disabled={loading || classes.length === 0}>
+          <FileText className="size-3.5 mr-1.5" />
+          Generate Report
+        </Button>
+      </div>
+
+      <HomeworkReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        campusId={campusId}
+        sessionId={sessionId}
+        classes={classes}
+        fallbackTeacherName={userFullName}
+        defaultDate={getTomorrowDateString()}
+      />
     </div>
   )
 }

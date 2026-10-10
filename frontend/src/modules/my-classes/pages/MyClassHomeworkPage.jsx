@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import { Plus, Paperclip, Pencil, Trash2, Users } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
@@ -12,20 +12,22 @@ import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
 import HomeworkDialog from '@/modules/homework/components/HomeworkDialog'
 import SubmissionsDialog from '@/modules/homework/components/SubmissionsDialog'
 import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialog'
+import { parseLocalDate } from '@/lib/dateUtils'
 
-const SECTION_LABEL = { homework: 'Homework', classwork: 'Classwork' }
+const TYPE_TABS = [
+  { value: 'homework', label: 'Homework' },
+  { value: 'classwork', label: 'Classwork' },
+]
+const EMPTY_LABEL = { homework: 'No homework posted yet', classwork: 'No classwork posted yet' }
 
 function AssignmentCard({ hw, onViewSubmissions, onEdit, onDelete }) {
   return (
     <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">{hw.title}</span>
-            <Badge variant="outline" className="text-xs">{hw.subject?.name}</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Due {new Date(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          <p className="font-semibold text-sm">{hw.subject?.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Due {parseLocalDate(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -51,15 +53,16 @@ export default function MyClassHomeworkPage() {
   const campusId = activeRole?.campusId
   const sessionId = activeSession?.id
 
-  const { homework, total, loading, error, saving, deleting, fetchHomework, createHomework, updateHomework, deleteHomework } = useHomework(campusId)
+  const { homework, loading, error, saving, deleting, fetchHomework, createHomework, updateHomework, deleteHomework } = useHomework(campusId)
   const { classes, fetchClasses } = useMyTeachingClasses(campusId)
 
-  const [dialog, setDialog]     = useState({ open: false, data: null })
-  const [formError, setFormError] = useState(null)
-  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [activeType, setActiveType]         = useState('homework')
+  const [dialog, setDialog]                 = useState({ open: false, data: null })
+  const [formError, setFormError]           = useState(null)
+  const [deleteTarget, setDeleteTarget]     = useState(null)
   const [submissionsFor, setSubmissionsFor] = useState(null)
 
-  const params = { sessionId, classGroupId: Number(classGroupId), sectionId: Number(sectionId) }
+  const params = { sessionId, classGroupId: Number(classGroupId), sectionId: Number(sectionId), mine: true, limit: 100 }
   const currentClass = classes.find(
     (c) => String(c.classGroupId) === classGroupId && String(c.sectionId) === sectionId
   )
@@ -69,6 +72,12 @@ export default function MyClassHomeworkPage() {
     if (campusId && sessionId) fetchHomework(params)
     if (campusId) fetchClasses()
   }, [campusId, sessionId, classGroupId, sectionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const counts = {
+    homework: homework.filter((h) => h.type === 'homework').length,
+    classwork: homework.filter((h) => h.type === 'classwork').length,
+  }
+  const visible = homework.filter((hw) => hw.type === activeType)
 
   const openCreate = () => { setFormError(null); setDialog({ open: true, data: null }) }
   const openEdit = (hw) => { setFormError(null); setDialog({ open: true, data: hw }) }
@@ -82,18 +91,36 @@ export default function MyClassHomeworkPage() {
     const result = dialog.data
       ? await updateHomework(dialog.data.id, formData, params)
       : await createHomework(formData, params)
-    if (result.success) setDialog({ open: false, data: null })
-    else setFormError(result.message)
+    if (result.success) {
+      setActiveType(formData.get('type'))
+      setDialog({ open: false, data: null })
+    } else {
+      setFormError(result.message)
+    }
   }
-
-  const isEmpty = !loading && !error && homework.length === 0
-  const homeworkItems  = homework.filter((hw) => hw.type === 'homework')
-  const classworkItems = homework.filter((hw) => hw.type === 'classwork')
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${total} assignment${total !== 1 ? 's' : ''}`}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 rounded-lg bg-muted p-1">
+          {TYPE_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveType(tab.value)}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-sm transition-colors',
+                activeType === tab.value
+                  ? 'bg-background text-foreground font-medium shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {tab.label}
+              {!loading && <span className="ml-1.5 text-xs text-muted-foreground">{counts[tab.value]}</span>}
+            </button>
+          ))}
+        </div>
+
         <Button size="sm" onClick={openCreate} disabled={saving}>
           <Plus className="size-3.5 mr-1.5" />
           Post Assignment
@@ -103,35 +130,17 @@ export default function MyClassHomeworkPage() {
       {loading && <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>}
       {!loading && error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-      {isEmpty && (
+      {!loading && !error && visible.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-16 border border-dashed border-border rounded-2xl">
-          <p className="text-sm font-medium text-foreground">No assignments posted yet</p>
+          <p className="text-sm font-medium text-foreground">{EMPTY_LABEL[activeType]}</p>
         </div>
       )}
 
-      {!loading && !error && homework.length > 0 && (
-        <div className="space-y-6">
-          {homeworkItems.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {SECTION_LABEL.homework} ({homeworkItems.length})
-              </h2>
-              {homeworkItems.map((hw) => (
-                <AssignmentCard key={hw.id} hw={hw} onViewSubmissions={setSubmissionsFor} onEdit={openEdit} onDelete={setDeleteTarget} />
-              ))}
-            </div>
-          )}
-
-          {classworkItems.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {SECTION_LABEL.classwork} ({classworkItems.length})
-              </h2>
-              {classworkItems.map((hw) => (
-                <AssignmentCard key={hw.id} hw={hw} onViewSubmissions={setSubmissionsFor} onEdit={openEdit} onDelete={setDeleteTarget} />
-              ))}
-            </div>
-          )}
+      {!loading && !error && visible.length > 0 && (
+        <div className="space-y-3">
+          {visible.map((hw) => (
+            <AssignmentCard key={hw.id} hw={hw} onViewSubmissions={setSubmissionsFor} onEdit={openEdit} onDelete={setDeleteTarget} />
+          ))}
         </div>
       )}
 
@@ -156,7 +165,7 @@ export default function MyClassHomeworkPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title="Delete Assignment"
-        description={`"${deleteTarget?.title}" and all student submissions will be permanently removed.`}
+        description={`This ${deleteTarget?.type ?? 'assignment'} and all student submissions will be permanently removed.`}
         onConfirm={async () => {
           const result = await deleteHomework(deleteTarget.id, params)
           if (result.success) setDeleteTarget(null)
