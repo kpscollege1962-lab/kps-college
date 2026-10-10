@@ -1,20 +1,22 @@
+import '@fontsource/noto-nastaliq-urdu/arabic-400.css'
 import { parseLocalDate } from '@/lib/dateUtils'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-const itemText = (a) => a.description?.trim() || (a.attachment_url ? 'See attached file' : '—')
+// Noori Nastaliq is used if it is installed or added to the project; otherwise Noto Nastaliq Urdu.
+const URDU_FONT = "'Noori Nastaliq', 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif"
 
-// The sheet adds its own curly quotes, so remove any quote marks typed around the text.
-const cleanQuote = (q) => (q ?? '').trim().replace(/^["“”]+|["“”]+$/g, '').trim()
+// TODO: this single quote will later come from an admin-managed list.
+const REPORT_QUOTE = 'It is impossible for a man to learn what he thinks he already knows.'
+
+const itemText = (a) => a.description?.trim() || (a.attachment_url ? 'See attached file' : '—')
 
 function WorkRow({ label, items }) {
   return (
-    <div className="flex min-h-[3rem] border-b border-black last:border-b-0">
-      <div className="w-24 shrink-0 px-2 py-1.5 text-xs font-semibold leading-tight">
-        {label[0]}<br />{label[1]}
-      </div>
-      <div className="flex-1 space-y-1 px-3 py-1.5 text-sm leading-snug">
+    <div className="flex min-h-[2.25rem] border-b border-black last:border-b-0">
+      <div className="w-12 shrink-0 px-2 py-1 text-xs font-bold">{label}</div>
+      <div className="flex-1 space-y-0.5 px-3 py-1 text-sm leading-snug">
         {items.map((a, i) => (
           <p key={a.id}>{items.length > 1 ? `${i + 1}. ` : ''}{itemText(a)}</p>
         ))}
@@ -23,21 +25,20 @@ function WorkRow({ label, items }) {
   )
 }
 
+// One thin line separates each class from the next (the wrapper supplies the top line).
 function ClassBox({ title, classwork, homework }) {
   return (
-    <div className="break-inside-avoid border-y-[3px] border-black">
-      <div className="border-b border-black py-1 text-center text-xs font-bold uppercase tracking-wide">{title}</div>
-      <WorkRow label={['Class', 'work']} items={classwork} />
-      <WorkRow label={['Home', 'work']} items={homework} />
+    <div className="break-inside-avoid border-b border-black">
+      <div className="border-b border-black py-0.5 text-center text-xs font-bold uppercase tracking-wide">{title}</div>
+      <WorkRow label="CW" items={classwork} />
+      <WorkRow label="HW" items={homework} />
     </div>
   )
 }
 
 // classes: the teacher's classes, each { classGroupId, sectionId, className, sectionName, subjects: [{id, name}] }
-// quote: optional text; when empty, no quote line is shown.
-export default function HomeworkSheet({ teacherName, dueDate, classes, assignments, quote }) {
+export default function HomeworkSheet({ teacherName, dueDate, classes, assignments }) {
   const date = dueDate ? parseLocalDate(dueDate) : null
-  const quoteText = cleanQuote(quote)
 
   const boxes = classes.flatMap((cls) =>
     cls.subjects.map((subject) => {
@@ -60,7 +61,9 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
     >
       {/* TODO: school letterhead (Printheader) and watermark (PrintWatermark) slot in here later */}
 
-      <p dir="rtl" className="mb-3 text-center font-serif text-2xl">بسم اللہ الرحمن الرحیم</p>
+      <p dir="rtl" className="mb-2 text-center text-xl" style={{ fontFamily: URDU_FONT, lineHeight: 2.2 }}>
+        بسم اللہ الرحمن الرحیم
+      </p>
 
       {/* Centre column sizes to the title (no wrapping); name and date share the rest equally */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
@@ -78,20 +81,18 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
         </div>
       </div>
 
-      {quoteText && (
-        <p dir="auto" className="mt-4 text-center font-serif text-xl font-bold text-[#1e4fa3]">
-          “{quoteText}”
-        </p>
-      )}
+      <p className="my-3 text-center font-serif text-xl font-bold text-[#1e4fa3]">
+        “{REPORT_QUOTE}”
+      </p>
 
-      <div className="mt-4 space-y-4">
+      <div className="border-t border-black">
         {boxes.map((box) => (
           <ClassBox key={box.key} title={box.title} classwork={box.classwork} homework={box.homework} />
         ))}
       </div>
 
-      <p dir="rtl" className="mt-auto pt-6 text-center font-serif text-lg leading-loose">
-        <span className="underline">محترم والدین / سرپرست صاحبان!</span> آپ سب سے گزارش ہے کہ سکول میں دیئے گئے آج کے کام کے حوالے سے اپنے بچے / بچوں کی اچھی طرح رہنمائی ونگرانی کیجیئے تاکہ بچوں میں زیادہ سے زیادہ بہتری جلد سے جلد دیکھی جاسکے۔ شکریہ۔
+      <p dir="rtl" className="mt-auto pt-6 text-center text-[15px]" style={{ fontFamily: URDU_FONT, lineHeight: 2.6 }}>
+        <span className="underline underline-offset-8">محترم والدین / سرپرست صاحبان!</span> آپ سب سے گزارش ہے کہ سکول میں دیئے گئے آج کے کام کے حوالے سے اپنے بچے / بچوں کی اچھی طرح رہنمائی ونگرانی کیجیئے تاکہ بچوں میں زیادہ سے زیادہ بہتری جلد سے جلد دیکھی جاسکے۔ شکریہ۔
       </p>
     </div>
   )

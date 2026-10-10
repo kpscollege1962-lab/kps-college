@@ -42,7 +42,7 @@ module.exports = (sequelize) => {
       onDelete: 'RESTRICT',
       onUpdate: 'CASCADE',
     },
-        type: {
+    type: {
       type: DataTypes.ENUM('homework', 'classwork'),
       allowNull: false,
       defaultValue: 'homework',
@@ -66,6 +66,12 @@ module.exports = (sequelize) => {
     due_date: {
       type: DataTypes.DATEONLY,
       allowNull: false,
+    },
+    assigned_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+      comment: 'Day the work was given to students (defaults to the day it was posted)',
     },
     attachment_url: {
       type: DataTypes.STRING(500),

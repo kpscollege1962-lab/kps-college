@@ -22,6 +22,7 @@ const createRules = [
   body('type').isIn(['homework', 'classwork']).withMessage('type must be homework or classwork'),
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 200 }),
   body('description').optional({ values: 'falsy' }).trim(),
+  body('assignedDate').isISO8601().withMessage('A valid assignedDate is required'),
   body('dueDate').isISO8601().withMessage('A valid dueDate is required'),
 ];
 
@@ -30,7 +31,8 @@ const updateRules = [
   body('type').optional().isIn(['homework', 'classwork']).withMessage('type must be homework or classwork'),
   body('title').optional({ values: 'falsy' }).trim().notEmpty().isLength({ max: 200 }),
   body('description').optional({ values: 'falsy' }).trim(),
-  body('dueDate').optional().isISO8601(),
+  body('assignedDate').optional().isISO8601().withMessage('assignedDate must be a valid date'),
+  body('dueDate').optional().isISO8601().withMessage('dueDate must be a valid date'),
 ];
 
 module.exports = { homeworkIdParamRules, listRules, createRules, updateRules };

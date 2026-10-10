@@ -20,6 +20,9 @@ const TYPE_TABS = [
 ]
 const EMPTY_LABEL = { homework: 'No homework posted yet', classwork: 'No classwork posted yet' }
 
+const formatShort = (d) =>
+  parseLocalDate(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
 function AssignmentCard({ hw, onViewSubmissions, onEdit, onDelete }) {
   return (
     <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
@@ -27,7 +30,8 @@ function AssignmentCard({ hw, onViewSubmissions, onEdit, onDelete }) {
         <div className="min-w-0">
           <p className="font-semibold text-sm">{hw.subject?.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Due {parseLocalDate(hw.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {hw.assigned_date && <>Assigned {formatShort(hw.assigned_date)} · </>}
+            Due {formatShort(hw.due_date)}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">

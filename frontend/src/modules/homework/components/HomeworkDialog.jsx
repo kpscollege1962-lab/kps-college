@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { getTomorrowDateString } from '@/lib/dateUtils'
+import { toLocalDateString } from '@/lib/dateUtils'
+import { getNextWorkingDay, nonWorkingReason } from '@/lib/workingDays'
 
 const TYPE_OPTIONS = [
   { value: 'homework', label: 'Homework' },
@@ -14,37 +15,34 @@ const TYPE_OPTIONS = [
 ]
 const TYPE_LABEL = { homework: 'Homework', classwork: 'Classwork' }
 
-// const getTomorrowDateString = () => {
-//   const d = new Date()
-//   d.setDate(d.getDate() + 1)
-//   return d.toISOString().split('T')[0]
-// }
-
 export default function HomeworkDialog({ open, onOpenChange, subjects, initialData, onSubmit, saving, error }) {
-  const [description, setDescription] = useState('')
-  const [dueDate, setDueDate]       = useState('')
-  const [subjectId, setSubjectId]   = useState('')
-  const [type, setType]             = useState('homework')
-  const [file, setFile]             = useState(null)
+  const [description, setDescription]   = useState('')
+  const [assignedDate, setAssignedDate] = useState('')
+  const [dueDate, setDueDate]           = useState('')
+  const [subjectId, setSubjectId]       = useState('')
+  const [type, setType]                 = useState('homework')
+  const [file, setFile]                 = useState(null)
   const isEdit = !!initialData
-  const tomorrow = getTomorrowDateString()
-  const minDate = isEdit && initialData?.due_date && initialData.due_date < tomorrow ? initialData.due_date : tomorrow
+
+  const today = toLocalDateString()
+  // Due date can't be in the past — except when editing an older post that already has one.
+  const minDue = isEdit && initialData?.due_date && initialData.due_date < today ? initialData.due_date : today
+  const dueReason = nonWorkingReason(dueDate)
 
   useEffect(() => {
-    if (open) {
-      setDescription(initialData?.description ?? '')
-      setDueDate(initialData?.due_date ?? getTomorrowDateString())
-      setType(initialData?.type ?? 'homework')
-      setSubjectId(
-        initialData?.subject?.id
-          ? String(initialData.subject.id)
-          : subjects.length === 1
-            ? String(subjects[0].id)
-            : ''
-      )
-      setFile(null)
-    }
-  }, [open, initialData, subjects])
+    if (!open) return
+    setDescription(initialData?.description ?? '')
+    setType(initialData?.type ?? 'homework')
+    // Only one subject to choose from? Select it for them.
+    setSubjectId(
+      initialData?.subject?.id
+        ? String(initialData.subject.id)
+        : subjects.length === 1 ? String(subjects[0].id) : ''
+    )
+    setAssignedDate(initialData?.assigned_date ?? toLocalDateString())
+    setDueDate(initialData?.due_date ?? getNextWorkingDay())
+    setFile(null)
+  }, [open, initialData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const subjectName = isEdit
     ? initialData?.subject?.name
@@ -57,6 +55,7 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
     const formData = new FormData()
     formData.append('title', computedTitle)
     formData.append('description', description)
+    formData.append('assignedDate', assignedDate)
     formData.append('dueDate', dueDate)
     formData.append('type', type)
     if (!isEdit) formData.append('subjectId', subjectId)
@@ -113,17 +112,33 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
             <Textarea id="hw-desc" value={description} onChange={(e) => setDescription(e.target.value)} disabled={saving} rows={3} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="hw-due">Due Date</Label>
-            <Input
-              id="hw-due"
-              type="date"
-              value={dueDate}
-              min={minDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              disabled={saving}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="hw-assigned">Assigned on</Label>
+              <Input
+                id="hw-assigned"
+                type="date"
+                value={assignedDate}
+                max={today}
+                onChange={(e) => setAssignedDate(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="hw-due">Due date</Label>
+              <Input
+                id="hw-due"
+                type="date"
+                value={dueDate}
+                min={minDue}
+                onChange={(e) => setDueDate(e.target.value)}
+                disabled={saving}
+              />
+            </div>
           </div>
+          {dueReason && (
+            <p className="-mt-2 text-xs text-amber-600 dark:text-amber-400">The due date falls on {dueReason}.</p>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="hw-file">Attachment (optional)</Label>
@@ -133,7 +148,7 @@ export default function HomeworkDialog({ open, onOpenChange, subjects, initialDa
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button type="submit" disabled={saving || !dueDate || (!isEdit && !subjectId)}>
+            <Button type="submit" disabled={saving || !assignedDate || !dueDate || (!isEdit && !subjectId)}>
               {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Post Assignment'}
             </Button>
           </DialogFooter>

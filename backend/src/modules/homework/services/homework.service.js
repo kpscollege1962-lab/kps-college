@@ -4,6 +4,15 @@ const ApiError = require('../../../utils/ApiError');
 
 const CLOUDINARY_FOLDER = 'homework/posts';
 
+// 'YYYY-MM-DD' strings compare correctly as text; slice guards against full timestamps.
+const day = (value) => String(value).slice(0, 10);
+
+const assertDueNotBeforeAssigned = (assignedDate, dueDate) => {
+  if (day(dueDate) < day(assignedDate)) {
+    throw new ApiError(422, 'Due date cannot be before the assigned date');
+  }
+};
+
 const getHomeworkById = async (homeworkId, campusId) => {
   const homework = await Homework.findOne({
     where: { id: homeworkId, campus_id: campusId },
@@ -42,7 +51,9 @@ const listHomework = async ({ campusId, sessionId, classGroupId, sectionId, dueD
 };
 
 // ── Create homework (optional file attachment) ──────────────────────────────
-const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, subjectId, staffId, type, title, description, dueDate, file }) => {
+const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, subjectId, staffId, type, title, description, assignedDate, dueDate, file }) => {
+  assertDueNotBeforeAssigned(assignedDate, dueDate);
+
   let attachment = {};
   if (file) {
     const result = await uploadBufferToCloudinary(file.buffer, CLOUDINARY_FOLDER);
@@ -63,6 +74,7 @@ const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, su
     type,
     title,
     description,
+    assigned_date: assignedDate,
     due_date: dueDate,
     ...attachment,
   });
@@ -73,9 +85,14 @@ const createHomework = async ({ campusId, sessionId, classGroupId, sectionId, su
 // ── Update homework (optionally replace the attachment) ─────────────────────
 // Order: upload the new file, save the row, THEN remove the old file, so a
 // failure part-way never leaves the row pointing at a deleted file.
-const updateHomework = async (homeworkId, campusId, { title, description, dueDate, type, file }) => {
+const updateHomework = async (homeworkId, campusId, { title, description, assignedDate, dueDate, type, file }) => {
   const homework = await getHomeworkById(homeworkId, campusId);
   const oldPublicId = homework.attachment_public_id;
+
+  assertDueNotBeforeAssigned(
+    assignedDate ?? homework.assigned_date,
+    dueDate ?? homework.due_date
+  );
 
   let attachment = {};
   if (file) {
@@ -88,10 +105,11 @@ const updateHomework = async (homeworkId, campusId, { title, description, dueDat
   }
 
   await homework.update({
-    ...(title       !== undefined && { title }),
-    ...(description !== undefined && { description }),
+    ...(title        !== undefined && { title }),
+    ...(description  !== undefined && { description }),
+    ...(assignedDate !== undefined && { assigned_date: assignedDate }),
     ...(dueDate      !== undefined && { due_date: dueDate }),
-    ...(type          !== undefined && { type }),
+    ...(type         !== undefined && { type }),
     ...attachment,
   });
 

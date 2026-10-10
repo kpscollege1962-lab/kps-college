@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Printer, Shuffle } from 'lucide-react'
+import { Printer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toLocalDateString, parseLocalDate } from '@/lib/dateUtils'
 import { listHomeworkService } from '../services/homework.service'
-import { DEFAULT_QUOTE, pickRandomQuote } from '../constants/quotes'
 import HomeworkSheet from './HomeworkSheet'
 import PrintPortal from './PrintPortal'
 
@@ -24,12 +22,6 @@ export default function HomeworkReportDialog({
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState(null)
-  const [quote, setQuote]             = useState(DEFAULT_QUOTE)
-
-  // Start from the default quote each time the report is opened.
-  useEffect(() => {
-    if (open) setQuote(DEFAULT_QUOTE)
-  }, [open])
 
   // Fetch ALL of this teacher's assignments once per open, then filter by date locally.
   useEffect(() => {
@@ -66,13 +58,7 @@ export default function HomeworkReportDialog({
   const canPrint = !loading && !error && forDate.length > 0
 
   const sheet = (
-    <HomeworkSheet
-      teacherName={teacherName}
-      dueDate={dueDate}
-      classes={classes}
-      assignments={forDate}
-      quote={quote}
-    />
+    <HomeworkSheet teacherName={teacherName} dueDate={dueDate} classes={classes} assignments={forDate} />
   )
 
   return (
@@ -113,24 +99,6 @@ export default function HomeworkReportDialog({
               ))}
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="report-quote">Quote</Label>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setQuote((q) => pickRandomQuote(q))}>
-                <Shuffle className="size-3.5 mr-1.5" />
-                Generate
-              </Button>
-            </div>
-            <Textarea
-              id="report-quote"
-              dir="auto"
-              rows={2}
-              value={quote}
-              onChange={(e) => setQuote(e.target.value)}
-              placeholder="Type your own quote, or leave empty to print without one"
-            />
-          </div>
 
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
