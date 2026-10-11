@@ -14,9 +14,9 @@ const itemText = (a) => a.description?.trim() || (a.attachment_url ? 'See attach
 
 function WorkRow({ label, items }) {
   return (
-    <div className="flex min-h-[2.25rem] border-b border-black last:border-b-0">
-      <div className="w-12 shrink-0 px-2 py-1 text-xs font-bold">{label}</div>
-      <div className="flex-1 space-y-0.5 px-3 py-1 text-sm leading-snug">
+    <div className="flex min-h-[3rem] border-b border-black last:border-b-0">
+      <div className="w-16 shrink-0 px-3 py-2 text-sm font-bold">{label}</div>
+      <div className="flex-1 space-y-1 px-3 py-1.5 text-sm leading-snug">
         {items.map((a, i) => (
           <p key={a.id}>{items.length > 1 ? `${i + 1}. ` : ''}{itemText(a)}</p>
         ))}
@@ -25,11 +25,11 @@ function WorkRow({ label, items }) {
   )
 }
 
-// One thin line separates each class from the next (the wrapper supplies the top line).
+// Each class sits in its own bordered box.
 function ClassBox({ title, classwork, homework }) {
   return (
-    <div className="break-inside-avoid border-b border-black">
-      <div className="border-b border-black py-0.5 text-center text-xs font-bold uppercase tracking-wide">{title}</div>
+    <div className="break-inside-avoid border-[3px] border-black">
+      <div className="border-b border-black py-1 text-center text-xs font-bold uppercase tracking-wide">{title}</div>
       <WorkRow label="CW" items={classwork} />
       <WorkRow label="HW" items={homework} />
     </div>
@@ -61,7 +61,7 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
     >
       {/* TODO: school letterhead (Printheader) and watermark (PrintWatermark) slot in here later */}
 
-      <p dir="rtl" className="mb-2 text-center text-xl" style={{ fontFamily: URDU_FONT, lineHeight: 2.2 }}>
+      <p dir="rtl" className="mb-3 text-center text-2xl" style={{ fontFamily: URDU_FONT, lineHeight: 2.2 }}>
         بسم اللہ الرحمن الرحیم
       </p>
 
@@ -81,11 +81,11 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
         </div>
       </div>
 
-      <p className="my-3 text-center font-serif text-xl font-bold text-[#1e4fa3]">
+      <p className="my-5 text-center font-serif text-xl font-bold text-[#1e4fa3]">
         “{REPORT_QUOTE}”
       </p>
 
-      <div className="border-t border-black">
+      <div className="space-y-3">
         {boxes.map((box) => (
           <ClassBox key={box.key} title={box.title} classwork={box.classwork} homework={box.homework} />
         ))}

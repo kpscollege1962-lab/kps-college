@@ -20,6 +20,7 @@ import AbilityProvider from '@/casl/AbilityProvider'
 import { feeRoutes } from '@/modules/fees/routes/index'
 import MyFeesPage from '@/modules/fees/pages/MyFeesPage'
 import { myClassesRoutes } from '@/modules/my-classes/routes/myClasses.routes'
+import { assignmentRoutes } from '@/modules/assignments/routes/assignments.routes'
 
 export const portalShellRoutes = {
   path: '/portal',
@@ -56,6 +57,7 @@ export const portalShellRoutes = {
             { path: 'fees',                 children: feeRoutes },
             { path: 'my-fees',              element: <MyFeesPage /> },
             { path: 'my-classes', children: myClassesRoutes },
+            { path: 'assignments', children: assignmentRoutes },
 // Feature module routes will be added here as they are built
 
             { path: '*', element: <NotFoundPage /> },
