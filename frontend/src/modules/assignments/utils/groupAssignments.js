@@ -1,5 +1,6 @@
-const classLabelOf = (name, sectionName) => `${name ?? ''}${sectionName ? ` — ${sectionName}` : ''}`
+import { classLabelText } from '@/modules/homework/utils/labels'
 
+const classLabelOf = classLabelText
 // Flat (class, section, subject, teacher) rows -> the { classGroupId, sectionId, className,
 // sectionName, subjects } shape that HomeworkSheet expects.
 export const tuplesToClasses = (tuples) => {

@@ -1,14 +1,18 @@
 import { createPortal } from 'react-dom'
 
-// Renders children at <body> level. On screen it's hidden; when printing, it is
-// the ONLY thing shown, so the sheet prints cleanly regardless of the app layout.
+
 const PRINT_CSS = `
-.print-root { display: none; }
+.print-root { position: fixed; left: -99999px; top: 0; }
 @media print {
-  @page { size: A4; margin: 0; }
-  html, body { margin: 0 !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+  @page { size: A4 portrait; margin: 0; }
+  html, body {
+    margin: 0 !important; padding: 0 !important;
+    width: 210mm !important; height: 296mm !important;
+    overflow: hidden !important; background: #fff !important;
+  }
   body > *:not(.print-root) { display: none !important; }
-  .print-root { display: block !important; }
+  .print-root { position: static !important; display: block !important; }
+  .print-root .sheet-page { height: 296mm !important; break-inside: avoid; page-break-inside: avoid; }
 }
 `
 

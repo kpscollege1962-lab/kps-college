@@ -192,8 +192,7 @@ export default function AssignmentsPage() {
               view={view}
               open={openKeys.has(group.key)}
               onToggle={() => toggle(group.key)}
-              onReport={() => setReportGroup(group)}
-            />
+              onReport={() => setReportGroup({ ...group, view })}            />
           ))}
         </div>
       )}

@@ -3,17 +3,18 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { parseLocalDate } from '@/lib/dateUtils'
+import { classLabelText, joinParts } from '@/modules/homework/utils/labels'
+import RichText from '@/modules/homework/components/RichText'
 
 const fmt = (d) =>
   parseLocalDate(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const classText = (a) => `${a.classGroup?.name ?? ''}${a.section?.name ? ` — ${a.section.name}` : ''}`
+const classText = (a) => classLabelText(a.classGroup?.name, a.section?.name)
 
-// What identifies a row depends on the tab: the group already tells you the rest.
 const primaryText = (view, a) => {
-  if (view === 'teacher') return `${classText(a)} · ${a.subject?.name ?? ''}`
-  if (view === 'subject') return `${classText(a)} · ${a.postedBy?.full_name ?? ''}`
-  return `${a.subject?.name ?? ''} · ${a.postedBy?.full_name ?? ''}`
+  if (view === 'teacher') return joinParts(classText(a), a.subject?.name)
+  if (view === 'subject') return joinParts(classText(a), a.postedBy?.full_name)
+  return joinParts(a.subject?.name, a.postedBy?.full_name)
 }
 
 export default function AssignmentGroupCard({ group, rows, view, open, onToggle, onReport }) {
@@ -31,7 +32,7 @@ export default function AssignmentGroupCard({ group, rows, view, open, onToggle,
           <ChevronRight
             className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90', !hasRows && 'opacity-30')}
           />
-          <span className="truncate text-sm font-semibold">{group.label}</span>
+          <span className="truncate text-sm font-semibold"><RichText text={group.label} ordinal /></span>
           <Badge variant="outline" className="shrink-0 text-xs">{rows.length}</Badge>
           {!hasRows && <span className="text-xs text-muted-foreground">No assignments</span>}
         </button>
@@ -47,13 +48,15 @@ export default function AssignmentGroupCard({ group, rows, view, open, onToggle,
           {rows.map((a) => (
             <div key={a.id} className="space-y-1 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{primaryText(view, a)}</span>
+                <span className="text-sm font-medium"><RichText text={primaryText(view, a)} ordinal /></span>
                 <Badge variant="outline" className="text-xs capitalize">{a.type}</Badge>
               </div>
               <p className="text-xs text-muted-foreground">
                 {a.assigned_date && <>Assigned {fmt(a.assigned_date)} · </>}Due {fmt(a.due_date)}
               </p>
-              {a.description && <p className="text-sm text-muted-foreground">{a.description}</p>}
+              {a.description && (
+                <p dir="auto" className="text-sm text-muted-foreground"><RichText text={a.description} /></p>
+              )}
               {a.attachment_url && (
                 <a
                   href={a.attachment_url}

@@ -1,16 +1,20 @@
-import '@fontsource/noto-nastaliq-urdu/arabic-400.css'
+import { forwardRef } from 'react'
 import { parseLocalDate } from '@/lib/dateUtils'
+import { URDU_FONT } from '../constants/fonts'
+import { DEFAULT_QUOTE } from '../constants/quotes'
+import { buildSheetBoxes } from '../utils/sheetBoxes'
+import FitToPage from './FitToPage'
+import RichText from './RichText'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-// Noori Nastaliq is used if it is installed or added to the project; otherwise Noto Nastaliq Urdu.
-const URDU_FONT = "'Noori Nastaliq', 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif"
+const cleanQuote = (q) => String(q ?? '').trim().replace(/^["“”]+|["“”]+$/g, '').trim()
 
-// TODO: this single quote will later come from an admin-managed list.
-const REPORT_QUOTE = 'It is impossible for a man to learn what he thinks he already knows.'
-
-const itemText = (a) => a.description?.trim() || (a.attachment_url ? 'See attached file' : '—')
+const itemText = (a, index, count) => {
+  const text = a.description?.trim() || (a.attachment_url ? 'See attached file' : '—')
+  return count > 1 ? `${index + 1}. ${text}` : text
+}
 
 function WorkRow({ label, items }) {
   return (
@@ -18,56 +22,51 @@ function WorkRow({ label, items }) {
       <div className="w-16 shrink-0 px-3 py-2 text-sm font-bold">{label}</div>
       <div className="flex-1 space-y-1 px-3 py-1.5 text-sm leading-snug">
         {items.map((a, i) => (
-          <p key={a.id}>{items.length > 1 ? `${i + 1}. ` : ''}{itemText(a)}</p>
+          <p key={a.id} dir="auto"><RichText text={itemText(a, i, items.length)} /></p>
         ))}
       </div>
     </div>
   )
 }
 
-// Each class sits in its own bordered box.
 function ClassBox({ title, classwork, homework }) {
   return (
     <div className="break-inside-avoid border-[3px] border-black">
-      <div className="border-b border-black py-1 text-center text-xs font-bold uppercase tracking-wide">{title}</div>
+      <div className="border-b border-black py-1 text-center text-xs font-bold uppercase tracking-wide">
+        <RichText text={title} ordinal />
+      </div>
       <WorkRow label="CW" items={classwork} />
       <WorkRow label="HW" items={homework} />
     </div>
   )
 }
 
-// classes: the teacher's classes, each { classGroupId, sectionId, className, sectionName, subjects: [{id, name}] }
-export default function HomeworkSheet({ teacherName, dueDate, classes, assignments }) {
-  const date = dueDate ? parseLocalDate(dueDate) : null
 
-  const boxes = classes.flatMap((cls) =>
-    cls.subjects.map((subject) => {
-      const matching = assignments.filter(
-        (a) => a.class_group_id === cls.classGroupId && a.section_id === cls.sectionId && a.subject_id === subject.id
-      )
-      return {
-        key: `${cls.classGroupId}-${cls.sectionId}-${subject.id}`,
-        title: `${cls.className}${cls.sectionName ? ` — ${cls.sectionName}` : ''} · ${subject.name}`,
-        classwork: matching.filter((a) => a.type === 'classwork'),
-        homework: matching.filter((a) => a.type === 'homework'),
-      }
-    })
-  )
+const HomeworkSheet = forwardRef(function HomeworkSheet(
+  { label, view, dueDate, assignments, quote = DEFAULT_QUOTE, onFit },
+  ref
+) {
+  const date = dueDate ? parseLocalDate(dueDate) : null
+  const boxes = buildSheetBoxes(view, assignments)
+  const quoteText = cleanQuote(quote)
 
   return (
-    <div
-      className="flex min-h-[296mm] w-[210mm] flex-col bg-[#a9ddf7] px-[12mm] py-[10mm] text-black"
-      style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+    <FitToPage
+      ref={ref}
+      onFit={onFit}
+      className="sheet-page"
+      innerClassName="flex flex-col px-[12mm] py-[10mm] text-black"
+      style={{ background: '#a9ddf7', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
     >
-      {/* TODO: school letterhead (Printheader) and watermark (PrintWatermark) slot in here later */}
 
       <p dir="rtl" className="mb-3 text-center text-2xl" style={{ fontFamily: URDU_FONT, lineHeight: 2.2 }}>
         بسم اللہ الرحمن الرحیم
       </p>
 
-      {/* Centre column sizes to the title (no wrapping); name and date share the rest equally */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
-        <p className="text-lg font-bold uppercase leading-tight text-[#b8235a]">{teacherName}</p>
+        <p dir="auto" className="text-lg font-bold uppercase leading-tight text-[#b8235a]">
+          <RichText text={label} ordinal />
+        </p>
         <h1 className="whitespace-nowrap text-center font-serif text-[22px] font-bold uppercase leading-tight">
           Assignments of the Day
         </h1>
@@ -81,11 +80,13 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
         </div>
       </div>
 
-      <p className="my-5 text-center font-serif text-xl font-bold text-[#1e4fa3]">
-        “{REPORT_QUOTE}”
-      </p>
+      {quoteText && (
+        <p dir="auto" className="mt-4 text-center font-serif text-xl font-bold text-[#1e4fa3]">
+          “<RichText text={quoteText} />”
+        </p>
+      )}
 
-      <div className="space-y-3">
+      <div className="mt-4 space-y-3">
         {boxes.map((box) => (
           <ClassBox key={box.key} title={box.title} classwork={box.classwork} homework={box.homework} />
         ))}
@@ -94,6 +95,8 @@ export default function HomeworkSheet({ teacherName, dueDate, classes, assignmen
       <p dir="rtl" className="mt-auto pt-6 text-center text-[15px]" style={{ fontFamily: URDU_FONT, lineHeight: 2.6 }}>
         <span className="underline underline-offset-8">محترم والدین / سرپرست صاحبان!</span> آپ سب سے گزارش ہے کہ سکول میں دیئے گئے آج کے کام کے حوالے سے اپنے بچے / بچوں کی اچھی طرح رہنمائی ونگرانی کیجیئے تاکہ بچوں میں زیادہ سے زیادہ بہتری جلد سے جلد دیکھی جاسکے۔ شکریہ۔
       </p>
-    </div>
+    </FitToPage>
   )
-}
+})
+
+export default HomeworkSheet
