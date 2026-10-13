@@ -44,7 +44,7 @@ const getOneCtrl = async (req, res) => {
 
 const createCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
-  const { sessionId, classGroupId, sectionId, subjectId, type, title, description, dueDate } =
+  const { sessionId, classGroupId, sectionId, subjectId, type, title, description, assignedDate, dueDate } =
     matchedData(req, { locations: ['body'] });
   const staffId = await resolveStaffId(req.user.id);
   const homework = await createHomework({
@@ -57,6 +57,7 @@ const createCtrl = async (req, res) => {
     type,
     title,
     description,
+    assignedDate,
     dueDate,
     file: req.file,
   });
@@ -66,8 +67,8 @@ const createCtrl = async (req, res) => {
 const updateCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
   const homeworkId = parseInt(req.params.homeworkId);
-  const { title, description, dueDate, type } = matchedData(req, { locations: ['body'] });
-  const homework = await updateHomework(homeworkId, campusId, { title, description, dueDate, type, file: req.file });
+  const { title, description, assignedDate, dueDate, type } = matchedData(req, { locations: ['body'] });
+  const homework = await updateHomework(homeworkId, campusId, { title, description, assignedDate, dueDate, type, file: req.file });
   res.json(ApiResponse.success('Homework updated', { homework }));
 };
 
