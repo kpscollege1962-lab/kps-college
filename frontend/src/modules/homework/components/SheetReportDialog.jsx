@@ -12,6 +12,7 @@ import { toLocalDateString, parseLocalDate } from '@/lib/dateUtils'
 import { getNextWorkingDay, nonWorkingReason } from '@/lib/workingDays'
 import { DEFAULT_QUOTE, pickRandomQuote } from '../constants/quotes'
 import { downloadNodeAsJpg, safeFileName } from '../utils/exportJpg'
+import { useSheetBranding } from '../hooks/useSheetBranding'
 import HomeworkSheet from './HomeworkSheet'
 import PrintPortal from './PrintPortal'
 
@@ -20,9 +21,8 @@ const MAX_CHIPS = 8
 const fmtChip = (d) =>
   parseLocalDate(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
-
 export default function SheetReportDialog({
-  open, onOpenChange, title, label, view, assignments = [], loading = false, error = null, editableQuote = false,
+  open, onOpenChange, campusId, title, label, view, assignments = [], loading = false, error = null, editableQuote = false,
 }) {
   const sheetRef = useRef(null)
   const [date, setDate]       = useState(() => toLocalDateString())
@@ -31,6 +31,8 @@ export default function SheetReportDialog({
   const [fit, setFit]         = useState({ scale: 1, overflow: false })
   const [exporting, setExporting]     = useState(false)
   const [exportError, setExportError] = useState(null)
+
+  const branding = useSheetBranding(campusId, open)
 
   useEffect(() => {
     if (!open) return
@@ -75,6 +77,8 @@ export default function SheetReportDialog({
     view,
     dueDate,
     assignments: forPeriod,
+    titleUrl: branding.titleUrl,
+    watermarkUrl: branding.watermarkUrl,
     ...(editableQuote && { quote }),
   }
 

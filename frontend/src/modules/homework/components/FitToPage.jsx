@@ -2,8 +2,13 @@ import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } f
 
 const MIN_SCALE = 0.4
 
-
-const FitToPage = forwardRef(function FitToPage({ children, className, innerClassName, style, onFit }, ref) {
+// A fixed A4 page. If the content is taller than the page it is scaled down (the content
+// is also made wider by the same factor, so it still fills the page width).
+// `behind` is drawn centred on the page itself (e.g. a watermark) and is never scaled.
+const FitToPage = forwardRef(function FitToPage(
+  { children, behind, className, innerClassName, style, onFit },
+  ref
+) {
   const outerRef = useRef(null)
   const innerRef = useRef(null)
   const onFitRef = useRef(onFit)
@@ -20,7 +25,6 @@ const FitToPage = forwardRef(function FitToPage({ children, className, innerClas
 
     const apply = (scale) => {
       inner.style.width = `${100 / scale}%`
-      inner.style.minHeight = '0px'
       inner.style.transform = `scale(${scale})`
       return inner.offsetHeight * scale
     }
@@ -31,25 +35,25 @@ const FitToPage = forwardRef(function FitToPage({ children, className, innerClas
       scale = Math.max(MIN_SCALE, scale * (pageHeight / height) * 0.995)
       height = apply(scale)
     }
-    // Short content: stretch to the page so the Urdu note sits at the bottom.
-    inner.style.minHeight = `${pageHeight / scale}px`
 
     onFitRef.current?.({ scale: Math.round(scale * 1000) / 1000, overflow: height > pageHeight + 1 })
   }
 
   useLayoutEffect(() => { fit() })
 
-  // Re-measure once web fonts finish loading (the Urdu font changes line heights).
   useEffect(() => {
+    const inner = innerRef.current
     let alive = true
     const refit = () => { if (alive) fit() }
     document.fonts?.ready?.then(refit)
     document.fonts?.addEventListener?.('loadingdone', refit)
+    inner?.addEventListener('load', refit, true)
     return () => {
       alive = false
       document.fonts?.removeEventListener?.('loadingdone', refit)
+      inner?.removeEventListener('load', refit, true)
     }
-  }, []) 
+  }, [])
 
   return (
     <div
@@ -57,7 +61,18 @@ const FitToPage = forwardRef(function FitToPage({ children, className, innerClas
       className={className}
       style={{ position: 'relative', overflow: 'hidden', width: '210mm', height: '297mm', ...style }}
     >
-      <div ref={innerRef} className={innerClassName} style={{ transformOrigin: 'top left' }}>
+      {behind && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute', inset: 0, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+          }}
+        >
+          {behind}
+        </div>
+      )}
+      <div ref={innerRef} className={innerClassName} style={{ position: 'relative', transformOrigin: 'top left' }}>
         {children}
       </div>
     </div>

@@ -45,6 +45,12 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: "'english' | 'urdu' | 'combined'",
     },
+      assignment_title_variant: {
+      type: DataTypes.ENUM('english', 'urdu', 'combined'),
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Which uploaded title appears on assignment sheets (null = none)',
+    },
     footer_text: {
       type: DataTypes.TEXT,
       allowNull: true,

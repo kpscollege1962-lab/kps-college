@@ -8,6 +8,7 @@ const { listRules, homeworkIdParamRules, createRules, updateRules } = require('.
 const { overviewRules, structureRules } = require('../validators/homeworkOverview.validator');
 const ctrl = require('../controllers/homework.controller');
 const overviewCtrl = require('../controllers/homeworkOverview.controller');
+const brandingCtrl = require('../controllers/homeworkBranding.controller');
 
 // Mounted at /campuses/:campusId/homework — mergeParams: true to access campusId
 const router = Router({ mergeParams: true });
@@ -17,9 +18,11 @@ router.get('/',
   listRules, validate,
   ctrl.list);
 
+router.get('/branding',
+  authenticate,
+  brandingCtrl.branding);
+
 // ── Admin overview (Super Admin only: no other role is granted HomeworkOverview) ──
-// NOTE: these must be defined BEFORE /:homeworkId, otherwise "overview" would be
-// captured as a homeworkId (same rule as the classes routes).
 router.get('/overview',
   authenticate, loadAbility,
   overviewRules, validate,

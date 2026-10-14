@@ -8,8 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useCampusBranding } from '../hooks/useCampusBranding'
 
-// Radix <Select.Item> can't have an empty-string value, so "None" uses 'none'
-// in the UI and is stored as null in the DB.
 const TITLE_VARIANTS = [
   { value: 'none',     label: 'None' },
   { value: 'english',  label: 'English Title' },
@@ -24,8 +22,6 @@ const SLOTS = [
   { key: 'watermark',      label: 'Watermark' },
 ]
 
-// Cloudinary URLs are already absolute and pass through unchanged. Only a plain
-// local path (old "/uploads/..." data, if any) gets VITE_API_ORIGIN prefixed.
 const assetUrl = (p) =>
   !p ? null : /^https?:\/\//i.test(p) ? p : `${import.meta.env.VITE_API_ORIGIN ?? ''}${p}`
 
@@ -87,10 +83,36 @@ const BrandingImageSlot = ({ label, imageUrl, uploading, onUpload, onClear, disa
   )
 }
 
-// Only rendered when editing an existing campus (uploads need a real campus id).
-// Images upload immediately; the active title and footer text are saved by the
-// form's own submit.
-const CampusBrandingSection = ({ campus, variant, onVariantChange, footerText, onFooterTextChange }) => {
+// "Which of the uploaded titles should this printout use?"
+const TitleVariantSelect = ({ label, value, onChange, hint }) => (
+  <div className="space-y-1.5 sm:max-w-xs">
+    <Label>{label}</Label>
+    <Select
+      value={value || 'none'}
+      onValueChange={(v) => onChange(v === 'none' ? '' : v)}
+    >
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="None">
+          {TITLE_VARIANTS.find((v) => v.value === (value || 'none'))?.label}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {TITLE_VARIANTS.map((v) => (
+          <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    <p className="text-xs text-muted-foreground">{hint}</p>
+  </div>
+)
+
+
+const CampusBrandingSection = ({
+  campus,
+  variant, onVariantChange,
+  assignmentVariant, onAssignmentVariantChange,
+  footerText, onFooterTextChange,
+}) => {
   const { branding, busyField, error, upload, clear } = useCampusBranding(campus.id, campus)
 
   return (
@@ -98,7 +120,8 @@ const CampusBrandingSection = ({ campus, variant, onVariantChange, footerText, o
       <div>
         <h3 className="text-sm font-semibold text-foreground">Printed Timetable Branding</h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Images upload immediately. The active title and footer are saved with the form's Save Changes.
+          Images upload immediately. The active titles and footer are saved with the form's Save Changes.
+          The watermark is used on printed timetables and assignment sheets.
         </p>
       </div>
 
@@ -122,28 +145,19 @@ const CampusBrandingSection = ({ campus, variant, onVariantChange, footerText, o
         </Alert>
       )}
 
-      <div className="space-y-1.5 sm:max-w-xs">
-        <Label>Active Title on Printed Timetables</Label>
-        <Select
-          value={variant || 'none'}
-          onValueChange={(v) => onVariantChange(v === 'none' ? '' : v)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="None">
-              {TITLE_VARIANTS.find((v) => v.value === (variant || 'none'))?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {TITLE_VARIANTS.map((v) => (
-              <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Choose which uploaded title shows on the printed timetable header. Selecting a
-          variant that hasn't been uploaded yet will show nothing until you upload it.
-        </p>
-      </div>
+      <TitleVariantSelect
+        label="Active Title on Printed Timetables"
+        value={variant}
+        onChange={onVariantChange}
+        hint="Choose which uploaded title shows on the printed timetable header. Selecting a variant that hasn't been uploaded yet will show nothing until you upload it."
+      />
+
+      <TitleVariantSelect
+        label="Active Title on Assignment Sheets"
+        value={assignmentVariant}
+        onChange={onAssignmentVariantChange}
+        hint="Choose which uploaded title shows at the top of the assignment sheet. The watermark above is applied to assignment sheets automatically."
+      />
 
       <div className="space-y-1.5 sm:max-w-sm">
         <Label>Footer Text</Label>
@@ -169,7 +183,8 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
     phone:     initialData?.phone     ?? '',
     email:     initialData?.email     ?? '',
     is_active: initialData?.is_active ?? 1,
-    active_title_variant: initialData?.active_title_variant ?? '',
+    active_title_variant:     initialData?.active_title_variant     ?? '',
+    assignment_title_variant: initialData?.assignment_title_variant ?? '',
     footer_text: initialData?.footer_text ?? '',
   })
 
@@ -189,7 +204,8 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
       is_active: form.is_active,
       // only sent when editing an existing campus
       ...(initialData?.id && {
-        active_title_variant: form.active_title_variant || null,
+        active_title_variant:     form.active_title_variant     || null,
+        assignment_title_variant: form.assignment_title_variant || null,
         footer_text: form.footer_text.trim() || null,
       }),
     })
@@ -312,6 +328,8 @@ export default function CampusForm({ initialData = null, onSubmit, onCancel, sav
           campus={initialData}
           variant={form.active_title_variant}
           onVariantChange={(v) => setForm((prev) => ({ ...prev, active_title_variant: v }))}
+          assignmentVariant={form.assignment_title_variant}
+          onAssignmentVariantChange={(v) => setForm((prev) => ({ ...prev, assignment_title_variant: v }))}
           footerText={form.footer_text}
           onFooterTextChange={(v) => setForm((prev) => ({ ...prev, footer_text: v }))}
         />

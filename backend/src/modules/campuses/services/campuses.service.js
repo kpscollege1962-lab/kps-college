@@ -58,25 +58,28 @@ const createCampus = async ({ name, code, address, phone, email, is_active }) =>
 
 // ── Update ─────────────────────────────────────────────────────────────────────
 
-const updateCampus = async (id, { name, code, address, phone, email, is_active, active_title_variant, footer_text }) => {
+const updateCampus = async (id, {
+  name, code, address, phone, email, is_active,
+  active_title_variant, assignment_title_variant, footer_text,
+}) => {
   const campus = await Campus.findByPk(id);
   if (!campus) throw new ApiError(404, 'Campus not found');
 
   await campus.update({
-    ...(name                 !== undefined && { name }),
-    ...(code                 !== undefined && { code }),
-    ...(address              !== undefined && { address }),
-    ...(phone                !== undefined && { phone }),
-    ...(email                !== undefined && { email }),
-    ...(is_active            !== undefined && { is_active }),
-    ...(active_title_variant !== undefined && { active_title_variant }),
-    ...(footer_text          !== undefined && { footer_text }),
+    ...(name                     !== undefined && { name }),
+    ...(code                     !== undefined && { code }),
+    ...(address                  !== undefined && { address }),
+    ...(phone                    !== undefined && { phone }),
+    ...(email                    !== undefined && { email }),
+    ...(is_active                !== undefined && { is_active }),
+    ...(active_title_variant     !== undefined && { active_title_variant }),
+    ...(assignment_title_variant !== undefined && { assignment_title_variant }),
+    ...(footer_text              !== undefined && { footer_text }),
   });
 
   return getCampusById(id);
 };
 
-// ── Branding images (stored on Cloudinary) ─────────────────────────────────────
 
 const BRANDING_COLUMNS = {
   title_english:  'title_english_url',
@@ -85,8 +88,7 @@ const BRANDING_COLUMNS = {
   watermark:      'watermark_url',
 };
 
-// One fixed Cloudinary id per campus + slot, so we never need to store it:
-// re-uploading overwrites, deleting targets the same id.
+
 const publicIdFor = (campusId, field) => `kps-college/campuses/${campusId}/${field}`;
 
 const setBrandingImage = async (id, field, file) => {
@@ -101,8 +103,6 @@ const setBrandingImage = async (id, field, file) => {
     throw new ApiError(502, 'Image upload failed. Please try again.');
   }
 
-  // secure_url contains a version number, so a replaced image gets a fresh URL
-  // and the browser never shows a stale cached copy.
   await campus.update({ [col]: result.secure_url });
   return campus;
 };
@@ -112,7 +112,6 @@ const clearBrandingImage = async (id, field) => {
   const col = BRANDING_COLUMNS[field];
 
   await campus.update({ [col]: null });
-  // Best effort: if Cloudinary is unreachable the DB is already cleared, which is what matters.
   await deleteImage(publicIdFor(id, field)).catch((err) =>
     console.error('Cloudinary delete failed:', err),
   );

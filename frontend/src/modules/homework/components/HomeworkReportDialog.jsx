@@ -43,6 +43,7 @@ export default function HomeworkReportDialog({
     <SheetReportDialog
       open={open}
       onOpenChange={onOpenChange}
+      campusId={campusId}
       title="Generate Report"
       label={label}
       view="teacher"

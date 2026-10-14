@@ -9,6 +9,10 @@ import RichText from './RichText'
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+const TITLE_MAX_HEIGHT = '32mm'
+const WATERMARK_WIDTH = '120mm'
+const WATERMARK_OPACITY = 0.15
+
 const cleanQuote = (q) => String(q ?? '').trim().replace(/^["“”]+|["“”]+$/g, '').trim()
 
 const itemText = (a, index, count) => {
@@ -41,23 +45,47 @@ function ClassBox({ title, classwork, homework }) {
   )
 }
 
-
+// label:        top-left text (the teacher, subject or class this sheet is for).
+// view:         'teacher' | 'subject' | 'class' — decides what each box is titled with.
+// quote:        optional. Omit it for the default quote; pass '' to print no quote line.
+// titleUrl:     optional campus title image, printed at the very top.
+// watermarkUrl: optional campus watermark, centred and faint behind everything.
 const HomeworkSheet = forwardRef(function HomeworkSheet(
-  { label, view, dueDate, assignments, quote = DEFAULT_QUOTE, onFit },
+  { label, view, dueDate, assignments, quote = DEFAULT_QUOTE, titleUrl = null, watermarkUrl = null, onFit },
   ref
 ) {
   const date = dueDate ? parseLocalDate(dueDate) : null
   const boxes = buildSheetBoxes(view, assignments)
   const quoteText = cleanQuote(quote)
 
+  const watermark = watermarkUrl ? (
+    <img
+      src={watermarkUrl}
+      alt=""
+      crossOrigin="anonymous"
+      draggable={false}
+      style={{ width: WATERMARK_WIDTH, opacity: WATERMARK_OPACITY, objectFit: 'contain' }}
+    />
+  ) : null
+
   return (
     <FitToPage
       ref={ref}
       onFit={onFit}
+      behind={watermark}
       className="sheet-page"
       innerClassName="flex flex-col px-[12mm] py-[10mm] text-black"
       style={{ background: '#a9ddf7', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
     >
+      {titleUrl && (
+        <img
+          src={titleUrl}
+          alt=""
+          crossOrigin="anonymous"
+          className="mx-auto mb-3 block w-auto max-w-full object-contain"
+          style={{ maxHeight: TITLE_MAX_HEIGHT }}
+        />
+      )}
 
       <p dir="rtl" className="mb-3 text-center text-2xl" style={{ fontFamily: URDU_FONT, lineHeight: 2.2 }}>
         بسم اللہ الرحمن الرحیم
@@ -92,7 +120,7 @@ const HomeworkSheet = forwardRef(function HomeworkSheet(
         ))}
       </div>
 
-      <p dir="rtl" className="mt-auto pt-6 text-center text-[15px]" style={{ fontFamily: URDU_FONT, lineHeight: 2.6 }}>
+      <p dir="rtl" className="mt-6 text-center text-[15px]" style={{ fontFamily: URDU_FONT, lineHeight: 2.6 }}>
         <span className="underline underline-offset-8">محترم والدین / سرپرست صاحبان!</span> آپ سب سے گزارش ہے کہ سکول میں دیئے گئے آج کے کام کے حوالے سے اپنے بچے / بچوں کی اچھی طرح رہنمائی ونگرانی کیجیئے تاکہ بچوں میں زیادہ سے زیادہ بہتری جلد سے جلد دیکھی جاسکے۔ شکریہ۔
       </p>
     </FitToPage>
