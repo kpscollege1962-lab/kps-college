@@ -10,7 +10,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const TITLE_MAX_HEIGHT = '32mm'
-const WATERMARK_WIDTH = '120mm'
+const WATERMARK_WIDTH = '150mm'
 const WATERMARK_OPACITY = 0.15
 
 const cleanQuote = (q) => String(q ?? '').trim().replace(/^["“”]+|["“”]+$/g, '').trim()
