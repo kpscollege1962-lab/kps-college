@@ -7,15 +7,17 @@ const statusTemplate = { loading: false, success: null, message: '' }
 export const roleContextExtraReducers = (builder) => {
   // Clear context automatically when the user logs out
   builder.addCase(logoutThunk.fulfilled, (state) => {
-    state.activeRole   = null
-    state.rules        = []
-    state.selectStatus = { ...statusTemplate }
+    state.activeRole    = null
+    state.rules         = []
+    state.workingCampus = null
+    state.selectStatus  = { ...statusTemplate }
   })
 
   mapAsyncReducers(builder, selectRoleThunk, 'selectStatus', {
     onFulfilled: (state, action) => {
-      state.activeRole = action.payload.context
-      state.rules      = action.payload.rules
+      state.activeRole    = action.payload.context
+      state.rules         = action.payload.rules
+      state.workingCampus = null 
     },
   })
 }

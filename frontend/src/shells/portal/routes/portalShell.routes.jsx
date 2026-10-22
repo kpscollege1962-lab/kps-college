@@ -21,7 +21,7 @@ import { feeRoutes } from '@/modules/fees/routes/index'
 import MyFeesPage from '@/modules/fees/pages/MyFeesPage'
 import { myClassesRoutes } from '@/modules/my-classes/routes/myClasses.routes'
 import { assignmentRoutes } from '@/modules/assignments/routes/assignments.routes'
-
+import ComingSoonPage from '@/shells/portal/pages/ComingSoonPage'
 export const portalShellRoutes = {
   path: '/portal',
   element: <AuthGuard />,         // layer 1: must be logged in
@@ -58,6 +58,7 @@ export const portalShellRoutes = {
             { path: 'my-fees',              element: <MyFeesPage /> },
             { path: 'my-classes', children: myClassesRoutes },
             { path: 'assignments', children: assignmentRoutes },
+            { path: 'soon/:featureId', element: <ComingSoonPage /> },
 // Feature module routes will be added here as they are built
 
             { path: '*', element: <NotFoundPage /> },
