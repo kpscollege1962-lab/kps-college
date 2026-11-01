@@ -76,6 +76,7 @@ export default function SheetReportDialog({
     label,
     view,
     dueDate,
+    date,
     assignments: forPeriod,
     titleUrl: branding.titleUrl,
     watermarkUrl: branding.watermarkUrl,

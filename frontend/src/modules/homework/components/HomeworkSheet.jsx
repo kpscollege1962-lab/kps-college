@@ -51,10 +51,10 @@ function ClassBox({ title, classwork, homework }) {
 // titleUrl:     optional campus title image, printed at the very top.
 // watermarkUrl: optional campus watermark, centred and faint behind everything.
 const HomeworkSheet = forwardRef(function HomeworkSheet(
-  { label, view, dueDate, assignments, quote = DEFAULT_QUOTE, titleUrl = null, watermarkUrl = null, onFit },
+  { label, view, assignments,date: assignedDate, quote = DEFAULT_QUOTE, titleUrl = null, watermarkUrl = null, onFit },
   ref
 ) {
-  const date = dueDate ? parseLocalDate(dueDate) : null
+  const date = assignedDate ? parseLocalDate(assignedDate) : null
   const boxes = buildSheetBoxes(view, assignments)
   const quoteText = cleanQuote(quote)
 

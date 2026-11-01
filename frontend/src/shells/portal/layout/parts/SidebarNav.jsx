@@ -26,6 +26,41 @@ const SoonTag = () => (
   </span>
 )
 
+// ids of the groups on the way to the entry that matches the current page (null = no match)
+const activeTrail = (nodes, pathname) => {
+  for (const node of nodes) {
+    if (node.type === 'group') {
+      const inner = activeTrail(node.items, pathname)
+      if (inner) return [node.id, ...inner]
+    } else if (node.type === 'item' && !node.noHighlight && isPathActive(pathname, node.path)) {
+      return []
+    }
+  }
+  return null
+}
+
+const flatten = (items) => items.flatMap((n) => (n.type === 'group' ? flatten(n.items) : [n]))
+
+// For the collapsed sidebar's popup: loose entries, then one labelled section per sub-group.
+const toSections = (items) => {
+  const sections = []
+  let loose = null
+  for (const node of items) {
+    if (node.type === 'group') {
+      loose = null
+      sections.push({ key: node.id, label: node.title, items: flatten(node.items) })
+    } else {
+      if (!loose) {
+        loose = { key: `loose-${node.id}`, label: null, items: [] }
+        sections.push(loose)
+      }
+      loose.items.push(node)
+    }
+  }
+  return sections
+}
+
+// ── A top-level entry with an icon (Home, Campuses, My profile) ────────────────
 function TopItem({ item, collapsed, onLinkClick }) {
   const Icon = item.icon
 
@@ -59,10 +94,75 @@ function TopItem({ item, collapsed, onLinkClick }) {
   )
 }
 
-function Group({ group, collapsed, open, hasActive, onToggle, onLinkClick }) {
+// ── An entry inside a group ────────────────────────────────────────────────────
+function ChildLink({ item, onLinkClick }) {
+  return (
+    <NavLink
+      to={item.path}
+      onClick={onLinkClick}
+      className={({ isActive }) => cn(
+        'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug',
+        'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent',
+        isActive && !item.noHighlight && 'bg-sidebar-accent text-sidebar-foreground font-medium',
+      )}
+    >
+      <span className="min-w-0 flex-1">{item.title}</span>
+      {SHOW_SOON_TAG && item.soon && <SoonTag />}
+    </NavLink>
+  )
+}
+
+// ── A group inside a group (Classes, Lecture, Papers ...) ──────────────────────
+function SubGroup({ group, openIds, trail, onToggle, onLinkClick }) {
+  const open = openIds.has(group.id)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onToggle(group.id)}
+        aria-expanded={open}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug',
+          'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent',
+          trail.has(group.id) && 'text-sidebar-foreground font-medium',
+        )}
+      >
+        <span className="min-w-0 flex-1 text-left">{group.title}</span>
+        <ChevronRight className={cn('w-3 h-3 shrink-0 transition-transform', open && 'rotate-90')} />
+      </button>
+
+      {open && (
+        <div className="ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
+          <Children items={group.items} openIds={openIds} trail={trail} onToggle={onToggle} onLinkClick={onLinkClick} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Children({ items, openIds, trail, onToggle, onLinkClick }) {
+  return (
+    <>
+      {items.map((node) =>
+        node.type === 'group' ? (
+          <SubGroup key={node.id} group={node} openIds={openIds} trail={trail} onToggle={onToggle} onLinkClick={onLinkClick} />
+        ) : (
+          <ChildLink key={node.id} item={node} onLinkClick={onLinkClick} />
+        )
+      )}
+    </>
+  )
+}
+
+// ── A top-level group (Academics, Accounts / finance, Examination, Settings) ───
+function Group({ group, collapsed, openIds, trail, onToggle, onLinkClick }) {
   const navigate = useNavigate()
   const Icon = group.icon
+  const open = openIds.has(group.id)
+  const hasActive = trail.has(group.id)
 
+  // Collapsed sidebar: just the icon; clicking it pops the group's entries out to the side.
   if (collapsed) {
     return (
       <DropdownMenu>
@@ -79,19 +179,26 @@ function Group({ group, collapsed, open, hasActive, onToggle, onLinkClick }) {
         <DropdownMenuContent side="right" align="start" className="w-72">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="font-normal">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{group.title}</p>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider">{group.title}</p>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
-          <DropdownMenuGroup>
-            {group.items.map((item) => (
-              <DropdownMenuItem
-                key={item.id}
-                onClick={() => { navigate(item.path); onLinkClick?.() }}
-              >
-                <span className="whitespace-normal leading-snug">{item.title}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
+          {toSections(group.items).map((section) => (
+            <DropdownMenuGroup key={section.key}>
+              {section.label && (
+                <DropdownMenuLabel className="font-normal">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{section.label}</p>
+                </DropdownMenuLabel>
+              )}
+              {section.items.map((item) => (
+                <DropdownMenuItem
+                  key={item.id}
+                  onClick={() => { navigate(item.path); onLinkClick?.() }}
+                >
+                  <span className="whitespace-normal leading-snug">{item.title}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
     )
@@ -101,7 +208,7 @@ function Group({ group, collapsed, open, hasActive, onToggle, onLinkClick }) {
     <div>
       <button
         type="button"
-        onClick={onToggle}
+        onClick={() => onToggle(group.id)}
         aria-expanded={open}
         className={cn(
           'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm',
@@ -116,21 +223,7 @@ function Group({ group, collapsed, open, hasActive, onToggle, onLinkClick }) {
 
       {open && (
         <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
-          {group.items.map((item) => (
-            <NavLink
-              key={item.id}
-              to={item.path}
-              onClick={onLinkClick}
-              className={({ isActive }) => cn(
-                'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug',
-                'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent',
-                isActive && !item.noHighlight && 'bg-sidebar-accent text-sidebar-foreground font-medium',
-              )}
-            >
-              <span className="min-w-0 flex-1">{item.title}</span>
-              {SHOW_SOON_TAG && item.soon && <SoonTag />}
-            </NavLink>
-          ))}
+          <Children items={group.items} openIds={openIds} trail={trail} onToggle={onToggle} onLinkClick={onLinkClick} />
         </div>
       )}
     </div>
@@ -143,14 +236,14 @@ export default function SidebarNav({ collapsed, onLinkClick }) {
   const tree = useMemo(() => resolveNavTree(activeRole), [activeRole])
   const [openIds, setOpenIds] = useState(() => new Set())
 
-  const activeGroupId = tree.find(
-    (e) => e.type === 'group' && e.items.some((i) => !i.noHighlight && isPathActive(pathname, i.path))
-  )?.id
+  const trailIds = useMemo(() => activeTrail(tree, pathname) ?? [], [tree, pathname])
+  const trail = useMemo(() => new Set(trailIds), [trailIds])
+  const trailKey = trailIds.join('|')
 
   useEffect(() => {
-    if (!activeGroupId) return
-    setOpenIds((prev) => (prev.has(activeGroupId) ? prev : new Set(prev).add(activeGroupId)))
-  }, [activeGroupId])
+    if (!trailIds.length) return
+    setOpenIds((prev) => (trailIds.every((id) => prev.has(id)) ? prev : new Set([...prev, ...trailIds])))
+  }, [trailKey]) 
 
   const toggle = (id) =>
     setOpenIds((prev) => {
@@ -172,9 +265,9 @@ export default function SidebarNav({ collapsed, onLinkClick }) {
               key={entry.id}
               group={entry}
               collapsed={collapsed}
-              open={openIds.has(entry.id)}
-              hasActive={entry.id === activeGroupId}
-              onToggle={() => toggle(entry.id)}
+              openIds={openIds}
+              trail={trail}
+              onToggle={toggle}
               onLinkClick={onLinkClick}
             />
           )
