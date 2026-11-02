@@ -7,7 +7,6 @@ export default function StaffPanel({ staffList, open, onToggle }) {
       className="flex flex-col h-full border-l border-border bg-card transition-all overflow-hidden shrink-0"
       style={{ width: open ? 200 : 36 }}
     >
-      {/* Toggle button */}
       <button
         onClick={onToggle}
         className="flex items-center justify-center h-9 w-full shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border-b border-border"

@@ -78,7 +78,7 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
   }
 
   const staffList = await Staff.findAll({
-    attributes: ['id', 'full_name', 'name_initials'],
+  attributes: ['id', 'full_name', 'name_initials', 'gender'],
     include: [
       // Restricts to staff actually postable/eligible for this campus's
       // timetable — same filter as getTimetableStaff (used for the slot
@@ -179,17 +179,18 @@ const getStaffWisePreview = async ({ campusId, sessionId }) => {
   // with an all-dashes row; the preview is meant to show the working
   // schedule, not a roster of everyone who could be scheduled.
   const withSlots = staffList
-    .map((staff) => {
-      const entryMap = bySlotByStaff.get(staff.id) ?? new Map();
-      return {
-        id:            staff.id,
-        full_name:     staff.full_name,
-        name_initials: staff.name_initials,
-        _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
-        slots: [...entryMap.values()].sort((a, b) => a.periodNumber - b.periodNumber),
-      };
-    })
-    .filter((staff) => staff.slots.length > 0);
+  .map((staff) => {
+    const entryMap = bySlotByStaff.get(staff.id) ?? new Map();
+    return {
+      id:            staff.id,
+      full_name:     staff.full_name,
+      name_initials: staff.name_initials,
+      gender:        staff.gender,
+      _joiningDate:  staff.postings?.[0]?.joining_date ?? null,
+      slots: [...entryMap.values()].sort((a, b) => a.periodNumber - b.periodNumber),
+    };
+  })
+  .filter((staff) => staff.slots.length > 0);
 
   // Seniority order: earliest joining_date first (most senior at the top).
   // Staff with no recorded joining_date sort last, then alphabetically among

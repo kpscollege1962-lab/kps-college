@@ -113,7 +113,7 @@ const getClassTimetable = async ({ campusId, classGroupId, sectionId }) => {
 
 const getTimetableStaff = async ({ campusId }) => {
   const staff = await Staff.findAll({
-    attributes: ['id', 'full_name', 'name_initials'],
+  attributes: ['id', 'full_name', 'name_initials', 'gender'],
     include: [{
       model: StaffPosting,
       as: 'postings',

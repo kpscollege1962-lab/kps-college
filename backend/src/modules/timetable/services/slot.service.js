@@ -8,8 +8,8 @@ const { findPeriodOrFail } = require('./period.service');
 const slotIncludes = [
   { model: Subject, as: 'subject1', attributes: ['id', 'name', 'name_initials'] },
   { model: Subject, as: 'subject2', attributes: ['id', 'name', 'name_initials'] },
-  { model: Staff,   as: 'staff1',   attributes: ['id', 'full_name', 'name_initials'] },
-  { model: Staff,   as: 'staff2',   attributes: ['id', 'full_name', 'name_initials'] },
+  { model: Staff,   as: 'staff1',   attributes: ['id', 'full_name', 'name_initials', 'gender'] },
+  { model: Staff,   as: 'staff2',   attributes: ['id', 'full_name', 'name_initials', 'gender'] },
 ];
 
 // ── Concurrent-period exemption by slot label ──────────────────────────────────

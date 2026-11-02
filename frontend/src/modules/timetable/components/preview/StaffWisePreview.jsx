@@ -63,8 +63,14 @@ const buildSubjectLine = (entry) => {
 // Staff-wise preview lists teachers formally — prefix every full name with
 // "Mr." (this campus's staff list is all-male). Names already shown as
 // initials elsewhere are left as-is.
-const withMr = (fullName) => (fullName ? `Mr. ${fullName}` : fullName)
+const withTitle = (fullName, gender) => {
+  if (!fullName) return fullName
 
+  if (gender === 'male') return `Mr. ${fullName}`
+  if (gender === 'female') return `Miss. ${fullName}`
+
+  return fullName
+}
 const secondsToClock = (totalSeconds) => {
   const wrapped = ((totalSeconds % 86400) + 86400) % 86400
   const h = Math.floor(wrapped / 3600)
@@ -108,7 +114,7 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
   const sortedPeriods  = periods && periods.length > 0 ? [...periods].sort((a, b) => a.period_number - b.period_number) : []
   const assemblyPeriod = sortedPeriods[0] ?? null
   const teachingSourcePeriods = sortedPeriods.length > 0 ? sortedPeriods.slice(1) : []
-
+  console.log('Staff data:', staff)
   const columns = teachingSourcePeriods.length > 0
     ? teachingSourcePeriods.map((p, idx) => ({ key: p.id, periodNumber: p.period_number, displayLabel: idx + 1, timings: p.timings }))
     : [...new Set(staff.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
@@ -277,7 +283,9 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                 >
                   {!isUnassignedRow && (
                     <>
-                      <div className="font-medium text-foreground">{withMr(member.full_name)}</div>
+                  <div className="font-medium text-foreground">
+                    {withTitle(member.full_name, member.gender)}
+                </div>
                       {member.name_initials && (
                         <div className="text-muted-foreground text-[10px]">{member.name_initials}</div>
                       )}
