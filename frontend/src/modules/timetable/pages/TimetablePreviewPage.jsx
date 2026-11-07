@@ -41,6 +41,12 @@ export default function TimetablePreviewPage() {
   // ── Print branding: title, watermark and footer come from the campus ────────
   // Set on Campuses → Edit → "Printed Timetable Branding".
   const { titleUrl, watermarkUrl, footerText } = useCampusPrintBranding(campusId)
+  console.log('Active Campus ID:', campusId)
+console.log('Branding:', {
+  titleUrl,
+  watermarkUrl,
+  footerText,
+})
 
   const {
     classData, classLoading, classError, fetchClassWise,
