@@ -60,6 +60,18 @@ const toSections = (items) => {
   return sections
 }
 
+// Opening a group that has a main page (Classes -> Manage classes) also goes to that page.
+function useGroupToggle(group, open, onToggle, onLinkClick) {
+  const navigate = useNavigate()
+  return () => {
+    onToggle(group.id)
+    if (!open && group.opensPath) {
+      navigate(group.opensPath)
+      onLinkClick?.()
+    }
+  }
+}
+
 // ── A top-level entry with an icon (Home, Campuses, My profile) ────────────────
 function TopItem({ item, collapsed, onLinkClick }) {
   const Icon = item.icon
@@ -115,12 +127,12 @@ function ChildLink({ item, onLinkClick }) {
 // ── A group inside a group (Classes, Lecture, Papers ...) ──────────────────────
 function SubGroup({ group, openIds, trail, onToggle, onLinkClick }) {
   const open = openIds.has(group.id)
-
+  const handleClick = useGroupToggle(group, open, onToggle, onLinkClick)
   return (
     <div>
       <button
         type="button"
-        onClick={() => onToggle(group.id)}
+        onClick={handleClick}
         aria-expanded={open}
         className={cn(
           'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug',
@@ -161,7 +173,7 @@ function Group({ group, collapsed, openIds, trail, onToggle, onLinkClick }) {
   const Icon = group.icon
   const open = openIds.has(group.id)
   const hasActive = trail.has(group.id)
-
+  const handleClick = useGroupToggle(group, open, onToggle, onLinkClick)
   // Collapsed sidebar: just the icon; clicking it pops the group's entries out to the side.
   if (collapsed) {
     return (
@@ -208,7 +220,7 @@ function Group({ group, collapsed, openIds, trail, onToggle, onLinkClick }) {
     <div>
       <button
         type="button"
-        onClick={() => onToggle(group.id)}
+        onClick={handleClick}
         aria-expanded={open}
         className={cn(
           'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm',

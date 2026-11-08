@@ -7,8 +7,9 @@ import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
 
 const TABS = [
   { path: 'students', label: 'Students' },
-  { path: 'homework', label: 'Assignments' },
+  // more tabs later: quizzes, attendance, marks...
 ]
+
 export default function MyClassLayout() {
   const { classGroupId, sectionId } = useParams()
   const { activeRole } = useRoleContext()
@@ -34,7 +35,7 @@ export default function MyClassLayout() {
           <h1 className="text-2xl font-bold tracking-tight">
             {current ? `${current.className}${current.sectionName ? ` — ${current.sectionName}` : ''}` : 'Class'}
           </h1>
-          {current && <p className="text-sm text-muted-foreground mt-0.5">{current.subjects.map(s => s.name).join(', ')}</p>}
+          {current && <p className="text-sm text-muted-foreground mt-0.5">{current.subjects.map((s) => s.name).join(', ')}</p>}
         </div>
       </div>
 

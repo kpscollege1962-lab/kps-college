@@ -27,6 +27,7 @@ const {
  *                  so it is not highlighted a second time
  *   collapseWhenSingle   (group) when a role is left with a single entry in the group, show
  *                  just that entry instead of a one-item group
+ *   opens   (group) id of the entry that opens by itself when the group is clicked open
  *
  * An entry with no real page for a role opens "yet to be implemented".
  * When a feature gets built, give its entry a `page` (and `live` if needed). Nothing else changes.
@@ -41,14 +42,19 @@ export const MASTER_NAV = [
     type: 'group', id: 'academics', title: 'Academics', icon: GraduationCap,
     items: [
       {
-        type: 'group', id: 'classes-group', title: 'Classes',
+        type: 'group', id: 'classes-group', title: 'Classes', opens: 'manage-classes',
         items: [
-          { id: 'manage-classes', title: 'Manage classes', page: '/portal/classes', roles: [SUPER_ADMIN, CAMPUS_ADMIN] },
+          // Admins manage classes; a teacher's Manage classes holds their timetable and assignments.
+          { id: 'manage-classes', title: 'Manage classes',
+            pages: { [SUPER_ADMIN]: '/portal/classes', [CAMPUS_ADMIN]: '/portal/classes', [TEACHER]: '/portal/my-classes' },
+            roles: [SUPER_ADMIN, CAMPUS_ADMIN, TEACHER] },
           { id: 'class-teachers', title: 'Class teachers', page: '/portal/class-teacher-assignments', roles: [SUPER_ADMIN, CAMPUS_ADMIN] },
           { id: 'enrollments', title: 'Enrollments', page: '/portal/enrollments', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
           { id: 'subjects', title: 'Subjects', page: '/portal/subjects', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
-          { id: 'my-classes', title: 'My classes', page: '/portal/my-classes', roles: [TEACHER] },
-          { id: 'timetable', title: 'Timetable', page: '/portal/timetable', live: [SUPER_ADMIN, CAMPUS_ADMIN, STUDENT] },
+          // Teachers see their own timetable at the top of Manage classes.
+          { id: 'timetable', title: 'Timetable',
+            pages: { [SUPER_ADMIN]: '/portal/timetable', [CAMPUS_ADMIN]: '/portal/timetable', [STUDENT]: '/portal/timetable', [TEACHER]: '/portal/my-classes' },
+            noHighlight: [TEACHER] },
           // Teachers post homework and classwork inside My classes, so theirs opens the same page.
           { id: 'homework', title: 'Homework',
             pages: { [SUPER_ADMIN]: '/portal/assignments', [TEACHER]: '/portal/my-classes' }, noHighlight: [TEACHER] },
@@ -62,7 +68,7 @@ export const MASTER_NAV = [
         type: 'group', id: 'lecture-group', title: 'Lecture',
         items: [
           { id: 'lecture-home', title: 'Home' },
-          { id: 'course-content', title: 'Course content' }, 
+          { id: 'course-content', title: 'Course content' }, // planned: RAG/LLM attachment
           { id: 'syllabus', title: 'Syllabus' },
         ],
       },
@@ -167,6 +173,18 @@ const toItem = (entry, roleName) => {
   }
 }
 
+const findItem = (nodes, id) => {
+  for (const node of nodes) {
+    if (node.type === 'group') {
+      const hit = findItem(node.items, id)
+      if (hit) return hit
+    } else if (node.type === 'item' && node.id === id) {
+      return node
+    }
+  }
+  return null
+}
+
 const resolveEntries = (entries, roleName) => {
   const out = []
   for (const entry of entries) {
@@ -176,11 +194,12 @@ const resolveEntries = (entries, roleName) => {
       continue
     } else if (entry.type === 'group') {
       const items = resolveEntries(entry.items, roleName)
-      if (!items.length) continue 
+      if (!items.length) continue // empty groups are dropped
       if (entry.collapseWhenSingle && items.length === 1 && items[0].type === 'item') {
         out.push({ ...items[0], icon: entry.icon })
       } else {
-        out.push({ type: 'group', id: entry.id, title: entry.title, icon: entry.icon, items })
+        const opensPath = entry.opens ? findItem(items, entry.opens)?.path ?? null : null
+        out.push({ type: 'group', id: entry.id, title: entry.title, icon: entry.icon, items, opensPath })
       }
     } else {
       out.push(toItem(entry, roleName))
@@ -189,15 +208,18 @@ const resolveEntries = (entries, roleName) => {
   return out
 }
 
+// The menu for one role: [{ type: 'item' | 'group' | 'divider', ... }]; groups can hold groups.
 export const resolveNavTree = (activeRole) => {
   const roleName = activeRole?.roleName
   if (!roleName) return []
 
+  // no divider at the very start, the very end, or twice in a row
   return resolveEntries(MASTER_NAV, roleName).filter(
     (e, i, all) => e.type !== 'divider' || (i > 0 && i < all.length - 1 && all[i - 1].type !== 'divider')
   )
 }
 
+// For the "yet to be implemented" page: the entry's title and where it sits ("Academics / Classes").
 export const findNavEntry = (id, entries = MASTER_NAV, trail = []) => {
   for (const entry of entries) {
     if (entry.type === 'group') {

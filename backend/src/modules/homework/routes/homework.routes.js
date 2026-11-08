@@ -6,11 +6,12 @@ const validate = require('../../../middlewares/validate');
 const upload = require('../../../middlewares/upload');
 const { listRules, homeworkIdParamRules, createRules, updateRules } = require('../validators/homework.validator');
 const { overviewRules, structureRules } = require('../validators/homeworkOverview.validator');
+const { mineRules, batchRules } = require('../validators/homeworkWorkspace.validator');
 const ctrl = require('../controllers/homework.controller');
 const overviewCtrl = require('../controllers/homeworkOverview.controller');
 const brandingCtrl = require('../controllers/homeworkBranding.controller');
+const workspaceCtrl = require('../controllers/homeworkWorkspace.controller');
 
-// Mounted at /campuses/:campusId/homework — mergeParams: true to access campusId
 const router = Router({ mergeParams: true });
 
 router.get('/',
@@ -18,11 +19,26 @@ router.get('/',
   listRules, validate,
   ctrl.list);
 
+// Sheet branding (title + watermark image URLs). Any signed-in user may read it.
 router.get('/branding',
   authenticate,
   brandingCtrl.branding);
 
-// ── Admin overview (Super Admin only: no other role is granted HomeworkOverview) ──
+// The teacher's own assignments, with filters (assigned date, due date, class, subject)
+router.get('/mine',
+  authenticate, loadAbility,
+  mineRules, validate,
+  requirePermission('manage', 'Homework'),
+  workspaceCtrl.mine);
+
+// Post classwork and/or homework to several classes with one save
+router.post('/batch',
+  authenticate, loadAbility,
+  batchRules, validate,
+  requirePermission('manage', 'Homework'),
+  workspaceCtrl.batch);
+
+// Admin overview (Super Admin only: no other role is granted HomeworkOverview)
 router.get('/overview',
   authenticate, loadAbility,
   overviewRules, validate,
@@ -60,7 +76,6 @@ router.delete('/:homeworkId',
   requirePermission('manage', 'Homework'),
   ctrl.delete);
 
-// ── Mount submissions sub-routes ───────────────────────────────────────────
 router.use('/:homeworkId/submissions', require('./homeworkSubmission.routes'));
 
 module.exports = router;
