@@ -11,11 +11,23 @@ const findPeriodOrFail = async ({ periodId, campusId }) => {
 
 // ── Create period ──────────────────────────────────────────────────────────────
 
-const createPeriod = async ({ campusId, periodNumber }) => {
+const createPeriod = async ({ campusId, periodNumber, isAssembly = false }) => {
+  if (isAssembly) {
+    const existingAssembly = await TimetablePeriod.findOne({ where: { campus_id: campusId, is_assembly: 1 } });
+    if (existingAssembly) throw new ApiError(409, 'This campus already has an assembly');
+    periodNumber = 0;
+  } else if (!Number.isInteger(periodNumber) || periodNumber < 1) {
+    throw new ApiError(422, 'Period number must be 1 or more');
+  }
+
   const existing = await TimetablePeriod.findOne({ where: { campus_id: campusId, period_number: periodNumber } });
   if (existing) throw new ApiError(409, 'Period number already exists for this campus');
 
-  const period = await TimetablePeriod.create({ campus_id: campusId, period_number: periodNumber });
+  const period = await TimetablePeriod.create({
+    campus_id: campusId,
+    period_number: periodNumber,
+    is_assembly: isAssembly ? 1 : 0,
+  });
 
   await TimetablePeriodTiming.bulkCreate([
     { period_id: period.id, config: 'full_day', start_time: null, end_time: null },

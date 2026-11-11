@@ -5,8 +5,13 @@ const { createPeriod, batchUpdateTimings, updateBreaks, deletePeriod } = require
 // ── POST /campuses/:campusId/timetable/periods ─────────────────────────────────
 
 const createPeriodCtrl = async (req, res) => {
-  const { campusId, periodNumber } = matchedData(req, { locations: ['params', 'body'] });
-  const period = await createPeriod({ campusId: parseInt(campusId), periodNumber: parseInt(periodNumber) });
+  const { campusId } = matchedData(req, { locations: ['params'] });
+  const { periodNumber, isAssembly } = req.body;
+  const period = await createPeriod({
+    campusId: parseInt(campusId),
+    periodNumber: periodNumber !== undefined && periodNumber !== null ? parseInt(periodNumber) : undefined,
+    isAssembly: isAssembly === true || isAssembly === 'true',
+  });
   res.status(201).json(ApiResponse.success('Period created', { period }));
 };
 

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { periodLabel } from '../utils/periodLabel'
 
 // Duration inputs only — rendered per tab
 function DurationInputs({ duration, setDuration }) {
@@ -121,10 +122,7 @@ export default function PeriodBreaksDialog({ open, period, rows, saving, onSave,
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>P{period.period_number} — Break Settings</DialogTitle>
-        </DialogHeader>
-
-        {/* Tabs for duration inputs only — class list is outside/below */}
+          <DialogTitle>{periodLabel(period.is_assembly, period.period_number)} — Break Settings</DialogTitle>        </DialogHeader>
         <Tabs defaultValue="full_day">
           <TabsList className="w-full">
             <TabsTrigger value="full_day" className="flex-1">Full Day</TabsTrigger>

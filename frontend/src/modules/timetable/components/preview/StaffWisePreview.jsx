@@ -112,14 +112,15 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
   // The first period (by period_number) is Assembly — excluded from the main
   // columns (same convention as Class-wise), its timing noted once above.
   const sortedPeriods  = periods && periods.length > 0 ? [...periods].sort((a, b) => a.period_number - b.period_number) : []
-  const assemblyPeriod = sortedPeriods[0] ?? null
-  const teachingSourcePeriods = sortedPeriods.length > 0 ? sortedPeriods.slice(1) : []
+  const assemblyPeriod = sortedPeriods.find((p) => p.is_assembly) ?? null
+  const teachingSourcePeriods = sortedPeriods.filter((p) => !p.is_assembly)
   console.log('Staff data:', staff)
   const columns = teachingSourcePeriods.length > 0
-    ? teachingSourcePeriods.map((p, idx) => ({ key: p.id, periodNumber: p.period_number, displayLabel: idx + 1, timings: p.timings }))
+    ? teachingSourcePeriods.map((p) => ({ key: p.id, periodNumber: p.period_number, displayLabel: p.period_number, timings: p.timings }))
     : [...new Set(staff.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
+        .filter((n) => n > 0) // 0 is the assembly
         .sort((a, b) => a - b)
-        .map((n, idx) => ({ key: n, periodNumber: n, displayLabel: idx + 1, timings: null }))
+        .map((n) => ({ key: n, periodNumber: n, displayLabel: n, timings: null }))
 
   const assemblyFd = assemblyPeriod?.timings?.find((t) => t.config === 'full_day')
   const assemblyFr = assemblyPeriod?.timings?.find((t) => t.config === 'half_day')

@@ -94,8 +94,8 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
   }
 
   const sortedPeriods  = periods && periods.length > 0 ? [...periods].sort((a, b) => a.period_number - b.period_number) : []
-  const assemblyPeriod = sortedPeriods[0] ?? null
-  const teachingSourcePeriods = sortedPeriods.length > 0 ? sortedPeriods.slice(1) : []
+  const assemblyPeriod = sortedPeriods.find((p) => p.is_assembly) ?? null
+  const teachingSourcePeriods = sortedPeriods.filter((p) => !p.is_assembly)
 
   // Split each subject's slots into ones with an assigned teacher (rendered
   // in the normal per-period grid) and ones without (staff === null) — those
@@ -109,8 +109,9 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
 
   // Maps a period's raw period_number to its display label (P1, P2, ...) —
   // same numbering the grid's column headers use, which excludes Assembly.
-  const periodDisplayMap = new Map(teachingSourcePeriods.map((p, idx) => [p.period_number, idx + 1]))
-
+  // The stored period_number is the display label (P1, P2, ...) — the assembly is
+  // flagged separately (number 0) and is not a teaching period.
+  const periodDisplayMap = new Map(teachingSourcePeriods.map((p) => [p.period_number, p.period_number]))
   const teacherlessEntries = subjects.flatMap((subject) =>
     (subject.slots ?? [])
       .filter((sl) => sl.staff == null)
@@ -124,10 +125,11 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
   )
 
   const columns = teachingSourcePeriods.length > 0
-    ? teachingSourcePeriods.map((p, idx) => ({ key: p.id, periodNumber: p.period_number, displayLabel: idx + 1, timings: p.timings }))
+    ? teachingSourcePeriods.map((p) => ({ key: p.id, periodNumber: p.period_number, displayLabel: p.period_number, timings: p.timings }))
     : [...new Set(subjectsWithAssignedSlots.flatMap((s) => s.slots.map((sl) => sl.periodNumber)))]
+        .filter((n) => n > 0) // 0 is the assembly
         .sort((a, b) => a - b)
-        .map((n, idx) => ({ key: n, periodNumber: n, displayLabel: idx + 1, timings: null }))
+        .map((n) => ({ key: n, periodNumber: n, displayLabel: n, timings: null }))
 
   const assemblyFd = assemblyPeriod?.timings?.find((t) => t.config === 'full_day')
   const assemblyFr = assemblyPeriod?.timings?.find((t) => t.config === 'half_day')

@@ -39,6 +39,7 @@ const listMyTimetable = async (userId, campusId) => {
       slotId:       slot.id,
       periodId:     slot.period.id,
       periodNumber: slot.period.period_number,
+      isAssembly:   Boolean(slot.period.is_assembly),
       classGroupId: slot.classGroup.id,
       className:    slot.classGroup.name,
       level:        slot.classGroup.level,

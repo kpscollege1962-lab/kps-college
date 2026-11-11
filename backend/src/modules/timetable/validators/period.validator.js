@@ -6,11 +6,17 @@ const { campusIdParamRules, periodIdParamRules } = require('./timetable.validato
 const createPeriodRules = [
   ...campusIdParamRules,
 
+    body('isAssembly')
+    .optional()
+    .isBoolean().withMessage('isAssembly must be true or false'),
+
+  // A teaching period needs its number; the assembly gets number 0 automatically.
   body('periodNumber')
+    .if((value, { req }) => req.body.isAssembly !== true && req.body.isAssembly !== 'true')
     .isInt({ min: 1 }).withMessage('Period number must be a positive integer'),
 ];
 
-// ── PATCH /timings/batch ──────────────────────────────────────────────────────
+// ── PATCH /timings/batch
 
 const batchUpdateTimingsRules = [
   ...campusIdParamRules,

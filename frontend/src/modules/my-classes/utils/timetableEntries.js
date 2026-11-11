@@ -1,4 +1,5 @@
 import { classLabelText } from '@/modules/homework/utils/labels'
+import { periodTitle } from '@/modules/timetable/utils/periodLabel'
 
 const cmpText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''))
 
@@ -6,7 +7,7 @@ export const buildCards = (entries) =>
   entries
     .map((e) => ({
       key: e.slotId,
-      periodNumber: e.periodNumber,
+      periodName: periodTitle(e.isAssembly, e.periodNumber),
       classGroupId: e.classGroupId,
       sectionId: e.sectionId,
       classLabel: classLabelText(e.className, e.sectionName),

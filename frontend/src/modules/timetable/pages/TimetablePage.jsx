@@ -192,8 +192,8 @@ export default function TimetablePage() {
     await swapSlots(campusId, slotA, slotB)
   }, [swapFirstSlot, campusId, swapSlots])
 
-  const handleAddPeriod = async ({ periodNumber }) => {
-    const result = await createPeriod(campusId, { periodNumber })
+  const handleAddPeriod = async (data) => {
+    const result = await createPeriod(campusId, data)
     if (result.success) setAddPeriodOpen(false)
   }
 
@@ -490,7 +490,9 @@ export default function TimetablePage() {
         <AddPeriodDialog
           open={addPeriodOpen}
           onOpenChange={setAddPeriodOpen}
-          suggestedNumber={periods.length + 1}
+          suggestedNumber={Math.max(0, ...periods.map((p) => p.period_number)) + 1}
+          hasAssembly={periods.some((p) => p.is_assembly)}
+          isFirstPeriod={periods.length === 0}
           onSubmit={handleAddPeriod}
           saving={saving}
         />

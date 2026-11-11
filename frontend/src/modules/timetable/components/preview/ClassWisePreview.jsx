@@ -92,8 +92,8 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
   // for it, so instead of a whole column of dashes, its timing is mentioned
   // once in a note above the table and it's excluded from the main columns.
   const sortedPeriods    = [...periods].sort((a, b) => a.period_number - b.period_number)
-  const assemblyPeriod   = sortedPeriods[0] ?? null
-  const teachingPeriods  = sortedPeriods.slice(1)
+  const assemblyPeriod   = sortedPeriods.find((p) => p.is_assembly) ?? null
+  const teachingPeriods  = sortedPeriods.filter((p) => !p.is_assembly)
 
   const assemblyFd = assemblyPeriod?.timings?.find((t) => t.config === 'full_day')
   const assemblyFr = assemblyPeriod?.timings?.find((t) => t.config === 'half_day')
@@ -184,9 +184,9 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border"
               />
-              {teachingPeriods.map((period, idx) => (
+              {teachingPeriods.map((period) => (
                 <th key={period.id} className="border border-border px-2 py-1 text-center font-semibold text-[10px]">
-                  P{idx + 1}
+                  P{period.period_number}
                 </th>
               ))}
             </tr>
