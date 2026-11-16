@@ -41,13 +41,12 @@ export const MASTER_NAV = [
   {
     type: 'group', id: 'academics', title: 'Academics', icon: GraduationCap,
     items: [
-      {
-        type: 'group', id: 'classes-group', title: 'Classes', opens: 'manage-classes',
-        items: [
-          // Admins manage classes; a teacher's Manage classes holds their timetable and assignments.
-          { id: 'manage-classes', title: 'Manage classes',
-            pages: { [SUPER_ADMIN]: '/portal/classes', [CAMPUS_ADMIN]: '/portal/classes', [TEACHER]: '/portal/my-classes' },
-            roles: [SUPER_ADMIN, CAMPUS_ADMIN, TEACHER] },
+            {
+        // Clicking Classes opens the class page itself: class management for admins, the timetable
+        // and assignments for a teacher. The entries below are the rest of the class tools.
+          type: 'group', id: 'classes-group', title: 'Classes',
+           pages: { [SUPER_ADMIN]: '/portal/classes', [CAMPUS_ADMIN]: '/portal/classes', [TEACHER]: '/portal/my-classes' },
+            items: [
           { id: 'class-teachers', title: 'Class teachers', page: '/portal/class-teacher-assignments', roles: [SUPER_ADMIN, CAMPUS_ADMIN] },
           { id: 'enrollments', title: 'Enrollments', page: '/portal/enrollments', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
           { id: 'subjects', title: 'Subjects', page: '/portal/subjects', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
@@ -173,17 +172,6 @@ const toItem = (entry, roleName) => {
   }
 }
 
-const findItem = (nodes, id) => {
-  for (const node of nodes) {
-    if (node.type === 'group') {
-      const hit = findItem(node.items, id)
-      if (hit) return hit
-    } else if (node.type === 'item' && node.id === id) {
-      return node
-    }
-  }
-  return null
-}
 
 const resolveEntries = (entries, roleName) => {
   const out = []
@@ -198,8 +186,7 @@ const resolveEntries = (entries, roleName) => {
       if (entry.collapseWhenSingle && items.length === 1 && items[0].type === 'item') {
         out.push({ ...items[0], icon: entry.icon })
       } else {
-        const opensPath = entry.opens ? findItem(items, entry.opens)?.path ?? null : null
-        out.push({ type: 'group', id: entry.id, title: entry.title, icon: entry.icon, items, opensPath })
+        out.push({ type: 'group', id: entry.id, title: entry.title, icon: entry.icon, items, opensPath: pageFor(entry, roleName) })
       }
     } else {
       out.push(toItem(entry, roleName))

@@ -19,6 +19,7 @@ export default function EditAssignmentDialog({ open, onOpenChange, box, saving, 
     setError(null)
   }, [open, box])
 
+  const classworkLocked = Boolean(box && box.dueDate !== box.assignedDate && box.records.classwork.length === 0)
   const canSave = !saving && Boolean(classwork.trim() || homework.trim())
 
   const handleSubmit = async (e) => {
@@ -48,7 +49,10 @@ export default function EditAssignmentDialog({ open, onOpenChange, box, saving, 
 
           <div className="space-y-1.5">
             <Label htmlFor="edit-classwork">Classwork</Label>
-            <Textarea id="edit-classwork" dir="auto" rows={3} value={classwork} onChange={(e) => setClasswork(e.target.value)} disabled={saving} />
+            <Textarea id="edit-classwork" dir="auto" rows={3} value={classwork} onChange={(e) => setClasswork(e.target.value)} disabled={saving || classworkLocked} />
+            {classworkLocked && (
+              <p className="text-xs text-muted-foreground">Classwork is for the same day, so it is not available when the due date is later.</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="edit-homework">Homework</Label>

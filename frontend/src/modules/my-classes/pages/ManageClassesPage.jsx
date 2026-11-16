@@ -55,7 +55,7 @@ export default function ManageClassesPage() {
           disabled={loading || classes.length === 0}
         >
           <FileText className="mr-1.5 size-3.5" />
-          Show Report
+          View Report
         </Button>
       </div>
 

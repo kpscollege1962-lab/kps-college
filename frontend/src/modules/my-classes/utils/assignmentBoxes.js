@@ -1,6 +1,6 @@
 import { classLabelText } from '@/modules/homework/utils/labels'
 
-const cmpText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''))
+const cmpText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true })
 
 export const groupAssignmentBoxes = (assignments) => {
   const byKey = new Map()

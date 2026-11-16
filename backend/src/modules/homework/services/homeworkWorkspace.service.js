@@ -45,6 +45,9 @@ const createHomeworkBatch = async ({
   if (day(dueDate) < day(assignedDate)) {
     throw new ApiError(422, 'Due date cannot be before the assigned date');
   }
+  if (texts.classwork && day(dueDate) !== day(assignedDate)) {
+    throw new ApiError(422, 'Classwork is for the same day: its due date must be the assigned date');
+  }
 
   const staff = await getMyStaffRecord(userId);
 

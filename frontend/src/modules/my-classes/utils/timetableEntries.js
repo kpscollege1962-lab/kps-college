@@ -1,21 +1,23 @@
 import { classLabelText } from '@/modules/homework/utils/labels'
 import { periodTitle } from '@/modules/timetable/utils/periodLabel'
 
-const cmpText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''))
+const cmpText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true })
 
 export const buildCards = (entries) =>
   entries
     .map((e) => ({
       key: e.slotId,
       periodName: periodTitle(e.isAssembly, e.periodNumber),
+      level: e.level ?? 0,
+      sectionName: e.sectionName ?? '',
       classGroupId: e.classGroupId,
       sectionId: e.sectionId,
       classLabel: classLabelText(e.className, e.sectionName),
       subjectText: e.subjects.map((s) => s.name).join(' / ') || e.label || '',
       timings: e.timings,
     }))
-    .sort((a, b) => a.periodNumber - b.periodNumber || cmpText(a.classLabel, b.classLabel))
-
+    .sort((a, b) => a.periodNumber - b.periodNumber || a.level - b.level || cmpText(a.sectionName, b.sectionName))
+    
 export const buildTargets = (entries) => {
   const byKey = new Map()
   for (const e of entries) {

@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialog'
 import { toLocalDateString } from '@/lib/dateUtils'
-import { getNextWorkingDay, nonWorkingReason } from '@/lib/workingDays'
+import { nonWorkingReason } from '@/lib/workingDays'
 import { listMyAssignmentsService } from '../services/teacherWorkspace.service'
 import { useMyAssignments } from '../hooks/useMyAssignments'
 import { groupAssignmentBoxes } from '../utils/assignmentBoxes'
@@ -21,6 +21,11 @@ const ALL = 'all'
 
 const targetText = (t) => `${t.classLabel} ${t.subjectName}`
 
+const defaultPostDates = () => {
+  const today = toLocalDateString()
+  return { assignedDate: today, dueDate: today }
+}
+// An empty date means "any". "All" in the timetable filter means every class and subject.
 const filtersFor = (filters, targets) => {
   const params = {}
   if (filters.assignedDate) params.assignedDate = filters.assignedDate
@@ -34,15 +39,15 @@ const filtersFor = (filters, targets) => {
   return params
 }
 
+// The view filter (dates, timetable filter, View), the Post Assignment form with its own dates,
+// then the assignments given.
 export default function AssignmentsSection({ campusId, sessionId, targets, timetableLoading }) {
-  const [initial] = useState(() => {
-    const today = toLocalDateString()
-    return { assignedDate: today, dueDate: getNextWorkingDay(today), target: ALL }
-  })
-  const [draft, setDraft] = useState(initial)    
-  const [applied, setApplied] = useState(initial) 
+  const [initial] = useState(() => ({ ...defaultPostDates(), target: ALL }))
+  const [draft, setDraft] = useState(initial)     // what the view filter inputs show
+  const [applied, setApplied] = useState(initial) // what View has applied to the list
 
   const [showForm, setShowForm] = useState(false)
+  const [postDates, setPostDates] = useState(defaultPostDates) // the dates inside the Post form
   const [formError, setFormError] = useState(null)
   const [existingKeys, setExistingKeys] = useState(() => new Set())
   const [editTarget, setEditTarget] = useState(null)
@@ -55,14 +60,17 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
 
   const boxes = useMemo(() => groupAssignmentBoxes(assignments), [assignments])
 
+  // The list follows the filters that View applied.
   useEffect(() => {
     fetchAssignments(filtersFor(applied, targets))
-  }, [applied, fetchAssignments]) 
+  }, [applied, fetchAssignments]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const refresh = useCallback(
     () => fetchAssignments(filtersFor(applied, targets)),
     [applied, targets, fetchAssignments]
   )
 
+  // Which class + subject already have something on the form's assigned date: not offered again.
   const loadExisting = useCallback(async (assignedDate) => {
     if (!campusId || !sessionId || !assignedDate) {
       setExistingKeys(new Set())
@@ -77,8 +85,8 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
   }, [campusId, sessionId])
 
   useEffect(() => {
-    if (showForm) loadExisting(draft.assignedDate)
-  }, [showForm, draft.assignedDate, loadExisting])
+    if (showForm) loadExisting(postDates.assignedDate)
+  }, [showForm, postDates.assignedDate, loadExisting])
 
   const availableTargets = useMemo(
     () => targets.filter((t) => !existingKeys.has(t.key)),
@@ -86,22 +94,33 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
   )
   const hiddenCount = targets.length - availableTargets.length
 
+  const togglePostForm = () => {
+    setFormError(null)
+    if (!showForm) setPostDates(defaultPostDates())
+    setShowForm((open) => !open)
+  }
+
+  // The due date starts the same as the assigned date, so a new assigned date resets it to match.
+  const handleAssignedDateChange = (value) =>
+    setPostDates({ assignedDate: value, dueDate: value || postDates.dueDate })
+
   const afterChange = () => {
     refresh()
-    if (showForm) loadExisting(draft.assignedDate)
+    if (showForm) loadExisting(postDates.assignedDate)
   }
 
   const handleSave = async ({ selected, classwork, homework }) => {
     setFormError(null)
     const today = toLocalDateString()
-    if (!draft.assignedDate || !draft.dueDate) return setFormError('Choose both the assigned date and the due date.')
-    if (draft.assignedDate > today) return setFormError('The assigned date cannot be in the future.')
-    if (draft.dueDate < today) return setFormError('The due date cannot be in the past.')
-    if (draft.dueDate < draft.assignedDate) return setFormError('The due date cannot be before the assigned date.')
+    const { assignedDate, dueDate } = postDates
+    if (!assignedDate || !dueDate) return setFormError('Choose both the assigned date and the due date.')
+    if (assignedDate > today) return setFormError('The assigned date cannot be in the future.')
+    if (dueDate < today) return setFormError('The due date cannot be in the past.')
+    if (dueDate < assignedDate) return setFormError('The due date cannot be before the assigned date.')
 
     const result = await createBatch({
-      assignedDate: draft.assignedDate,
-      dueDate: draft.dueDate,
+      assignedDate,
+      dueDate,
       classwork,
       homework,
       targets: selected.map((t) => ({
@@ -113,10 +132,10 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
     toast.success(selected.length > 1 ? 'Assignments posted' : 'Assignment posted')
     setShowForm(false)
     // Show what was just posted.
-    const next = { assignedDate: draft.assignedDate, dueDate: draft.dueDate, target: ALL }
+    const next = { assignedDate, dueDate, target: ALL }
     setDraft(next)
     setApplied(next)
-    loadExisting(draft.assignedDate)
+    loadExisting(assignedDate)
   }
 
   const noTargets = !timetableLoading && targets.length === 0
@@ -165,11 +184,11 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
           </Select>
         </div>
 
-        <Button type="button" variant="outline" onClick={() => setApplied({ ...draft })}>Show</Button>
+        <Button type="button" variant="outline" onClick={() => setApplied({ ...draft })}>View</Button>
         <Button
           type="button"
           className="ml-auto"
-          onClick={() => { setFormError(null); setShowForm((v) => !v) }}
+          onClick={togglePostForm}
           disabled={timetableLoading || noTargets}
         >
           <Plus className="mr-1.5 size-3.5" />
@@ -185,11 +204,17 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
 
       {showForm && (
         <PostAssignmentForm
+          assignedDate={postDates.assignedDate}
+          dueDate={postDates.dueDate}
+          maxAssignedDate={toLocalDateString()}
+          minDueDate={toLocalDateString()}
+          onAssignedDateChange={handleAssignedDateChange}
+          onDueDateChange={(value) => setPostDates((d) => ({ ...d, dueDate: value }))}
           availableTargets={availableTargets}
           hiddenCount={hiddenCount}
           saving={saving}
           error={formError}
-          dueReason={nonWorkingReason(draft.dueDate)}
+          dueReason={nonWorkingReason(postDates.dueDate)}
           onSubmit={handleSave}
           onCancel={() => setShowForm(false)}
         />
@@ -206,7 +231,7 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
       {!loading && !error && boxes.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border py-14 text-center">
           <p className="text-sm font-medium text-foreground">No assignments for these filters</p>
-          <p className="text-xs text-muted-foreground">Change the dates or the filter and press Show, or post a new assignment.</p>
+          <p className="text-xs text-muted-foreground">Change the dates or the filter and press View, or post a new assignment.</p>
         </div>
       )}
 

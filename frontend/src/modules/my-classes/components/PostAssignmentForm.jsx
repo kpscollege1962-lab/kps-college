@@ -1,25 +1,36 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import RichText from '@/modules/homework/components/RichText'
 
-
+// Post classwork and homework together: set the dates, pick the classes and subjects from the
+// timetable, type either or both, one Save. Classes that already have an assignment for the
+// assigned date are not offered again.
 export default function PostAssignmentForm({
+  assignedDate, dueDate, minDueDate, maxAssignedDate, onAssignedDateChange, onDueDateChange,
   availableTargets, hiddenCount, saving, error, dueReason, onSubmit, onCancel,
 }) {
   const [selected, setSelected] = useState(() => new Set())
   const [classwork, setClasswork] = useState('')
   const [homework, setHomework] = useState('')
 
+  // Drop a choice that is no longer offered (for example after the assigned date changed).
   useEffect(() => {
     setSelected((prev) => {
       const keep = new Set([...prev].filter((key) => availableTargets.some((t) => t.key === key)))
       return keep.size === prev.size ? prev : keep
     })
   }, [availableTargets])
+
+  
+  const classworkLocked = Boolean(assignedDate && dueDate && dueDate !== assignedDate)
+  useEffect(() => {
+    if (classworkLocked) setClasswork('')
+  }, [classworkLocked])
 
   const allSelected = availableTargets.length > 0 && selected.size === availableTargets.length
   const canSave = !saving && selected.size > 0 && Boolean(classwork.trim() || homework.trim())
@@ -40,15 +51,45 @@ export default function PostAssignmentForm({
     if (!canSave) return
     onSubmit({
       selected: availableTargets.filter((t) => selected.has(t.key)),
-      classwork,
+      classwork: classworkLocked ? '' : classwork,
       homework,
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="post-assigned">Assigned Date</Label>
+          <Input
+            id="post-assigned"
+            type="date"
+            value={assignedDate}
+            max={maxAssignedDate}
+            onChange={(e) => onAssignedDateChange(e.target.value)}
+            disabled={saving}
+            className="w-44"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="post-due">Due Date</Label>
+          <Input
+            id="post-due"
+            type="date"
+            value={dueDate}
+            min={minDueDate}
+            onChange={(e) => onDueDateChange(e.target.value)}
+            disabled={saving}
+            className="w-44"
+          />
+        </div>
+      </div>
+      {dueReason && (
+        <p className="-mt-2 text-xs text-amber-600 dark:text-amber-400">The due date falls on {dueReason}.</p>
+      )}
+
       <div className="flex items-center justify-between gap-3">
-        <Label>Classes and subjects</Label>
+        <Label>Timetable wise: classes and subjects</Label>
         {availableTargets.length > 1 && (
           <Button type="button" size="sm" variant="ghost" onClick={toggleAll} disabled={saving}>
             {allSelected ? 'Clear' : 'Select all'}
@@ -101,10 +142,15 @@ export default function PostAssignmentForm({
             dir="auto"
             rows={4}
             value={classwork}
-            onChange={(e) => setClasswork(e.target.value)}
-            placeholder="Enter classwork"
-            disabled={saving}
+                        onChange={(e) => setClasswork(e.target.value)}
+            placeholder={classworkLocked ? 'Not available: the due date is after the assigned date' : 'Enter classwork'}
+            disabled={saving || classworkLocked}
           />
+          {classworkLocked && (
+            <p className="text-xs text-muted-foreground">
+              Classwork is for the same day. Set the due date to the assigned date to enter it.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="post-homework">Homework</Label>
@@ -119,10 +165,6 @@ export default function PostAssignmentForm({
           />
         </div>
       </div>
-
-      {dueReason && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">The due date falls on {dueReason}.</p>
-      )}
 
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
