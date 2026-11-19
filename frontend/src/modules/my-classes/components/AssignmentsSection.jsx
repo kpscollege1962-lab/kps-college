@@ -21,10 +21,6 @@ const ALL = 'all'
 
 const targetText = (t) => `${t.classLabel} ${t.subjectName}`
 
-const defaultPostDates = () => {
-  const today = toLocalDateString()
-  return { assignedDate: today, dueDate: today }
-}
 // An empty date means "any". "All" in the timetable filter means every class and subject.
 const filtersFor = (filters, targets) => {
   const params = {}
@@ -39,17 +35,22 @@ const filtersFor = (filters, targets) => {
   return params
 }
 
-// The view filter (dates, timetable filter, View), the Post Assignment form with its own dates,
-// then the assignments given.
+// ONE filter (Assigned Date, Due Date, Timetable wise filter) drives everything here:
+//   View          shows the assignments for that filter;
+//   Post          posts to the class + subject chosen in that filter, on those dates.
+// Post is only there when the Assigned Date is today and the chosen class + subject has nothing
+// assigned yet for today, so the Post form itself only asks for the classwork and homework text.
 export default function AssignmentsSection({ campusId, sessionId, targets, timetableLoading }) {
-  const [initial] = useState(() => ({ ...defaultPostDates(), target: ALL }))
-  const [draft, setDraft] = useState(initial)     // what the view filter inputs show
+  const [initial] = useState(() => {
+    const today = toLocalDateString()
+    return { assignedDate: today, dueDate: today, target: ALL } // due the same day by default
+  })
+  const [draft, setDraft] = useState(initial)     // what the filter inputs show (and what Post uses)
   const [applied, setApplied] = useState(initial) // what View has applied to the list
 
   const [showForm, setShowForm] = useState(false)
-  const [postDates, setPostDates] = useState(defaultPostDates) // the dates inside the Post form
   const [formError, setFormError] = useState(null)
-  const [existingKeys, setExistingKeys] = useState(() => new Set())
+  const [existing, setExisting] = useState({ date: null, keys: new Set() })
   const [editTarget, setEditTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -70,78 +71,99 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
     [applied, targets, fetchAssignments]
   )
 
-  // Which class + subject already have something on the form's assigned date: not offered again.
-  const loadExisting = useCallback(async (assignedDate) => {
-    if (!campusId || !sessionId || !assignedDate) {
-      setExistingKeys(new Set())
-      return
-    }
-    const result = await listMyAssignmentsService(campusId, { sessionId, assignedDate })
-    if (result.success) {
-      setExistingKeys(
-        new Set(result.data.assignments.map((a) => `${a.class_group_id}-${a.section_id}-${a.subject_id}`))
-      )
-    }
+  // Which class + subject already have classwork or homework for TODAY (whatever the due date).
+  const today = toLocalDateString()
+  const loadExisting = useCallback(async () => {
+    if (!campusId || !sessionId) return
+    const date = toLocalDateString()
+    const result = await listMyAssignmentsService(campusId, { sessionId, assignedDate: date })
+    setExisting({
+      date,
+      keys: new Set(
+        result.success
+          ? result.data.assignments.map((a) => `${a.class_group_id}-${a.section_id}-${a.subject_id}`)
+          : []
+      ),
+    })
   }, [campusId, sessionId])
 
-  useEffect(() => {
-    if (showForm) loadExisting(postDates.assignedDate)
-  }, [showForm, postDates.assignedDate, loadExisting])
+  useEffect(() => { loadExisting() }, [loadExisting])
 
-  const availableTargets = useMemo(
-    () => targets.filter((t) => !existingKeys.has(t.key)),
-    [targets, existingKeys]
-  )
-  const hiddenCount = targets.length - availableTargets.length
+  // ── What the filter allows ──────────────────────────────────────────────────
+  const isToday = draft.assignedDate === today
+  const selectedTarget = draft.target !== ALL ? targets.find((t) => t.key === draft.target) ?? null : null
+  const existingReady = existing.date === today
+  const alreadyAssigned = Boolean(selectedTarget && existingReady && existing.keys.has(selectedTarget.key))
+  const noTargets = !timetableLoading && targets.length === 0
+
+  // The Post button exists only for today, and not for a class + subject that already has work.
+  const canOfferPost = isToday && existingReady && !alreadyAssigned && !noTargets
+
+  // It is there but switched off until the filter says what to post.
+  let blockedReason = null
+  if (canOfferPost) {
+    if (!selectedTarget) blockedReason = 'Select a class and subject in the filter to post an assignment.'
+    else if (!draft.dueDate) blockedReason = 'Choose a due date to post an assignment.'
+    else if (draft.dueDate < draft.assignedDate) blockedReason = 'The due date cannot be before the assigned date.'
+  }
+
+  // If the filter changes so that posting is no longer possible, the open form goes away.
+  useEffect(() => {
+    if (showForm && (!canOfferPost || blockedReason)) setShowForm(false)
+  }, [showForm, canOfferPost, blockedReason])
 
   const togglePostForm = () => {
     setFormError(null)
-    if (!showForm) setPostDates(defaultPostDates())
     setShowForm((open) => !open)
   }
 
-  // The due date starts the same as the assigned date, so a new assigned date resets it to match.
-  const handleAssignedDateChange = (value) =>
-    setPostDates({ assignedDate: value, dueDate: value || postDates.dueDate })
-
   const afterChange = () => {
     refresh()
-    if (showForm) loadExisting(postDates.assignedDate)
+    loadExisting()
   }
 
-  const handleSave = async ({ selected, classwork, homework }) => {
+  const handleSave = async ({ classwork, homework }) => {
     setFormError(null)
-    const today = toLocalDateString()
-    const { assignedDate, dueDate } = postDates
-    if (!assignedDate || !dueDate) return setFormError('Choose both the assigned date and the due date.')
-    if (assignedDate > today) return setFormError('The assigned date cannot be in the future.')
-    if (dueDate < today) return setFormError('The due date cannot be in the past.')
-    if (dueDate < assignedDate) return setFormError('The due date cannot be before the assigned date.')
+    if (!selectedTarget) return setFormError('Select a class and subject in the filter first.')
+    if (draft.assignedDate !== today) return setFormError('Assignments can only be posted for today.')
+    if (!draft.dueDate || draft.dueDate < draft.assignedDate) {
+      return setFormError('The due date cannot be before the assigned date.')
+    }
 
     const result = await createBatch({
-      assignedDate,
-      dueDate,
+      assignedDate: draft.assignedDate,
+      dueDate: draft.dueDate,
       classwork,
       homework,
-      targets: selected.map((t) => ({
-        classGroupId: t.classGroupId, sectionId: t.sectionId, subjectId: t.subjectId,
-      })),
+      targets: [{
+        classGroupId: selectedTarget.classGroupId,
+        sectionId: selectedTarget.sectionId,
+        subjectId: selectedTarget.subjectId,
+      }],
     })
     if (!result.success) return setFormError(result.message)
 
-    toast.success(selected.length > 1 ? 'Assignments posted' : 'Assignment posted')
+    toast.success('Assignment posted')
     setShowForm(false)
-    // Show what was just posted.
-    const next = { assignedDate, dueDate, target: ALL }
-    setDraft(next)
-    setApplied(next)
-    loadExisting(assignedDate)
+    setApplied({ ...draft }) // show what was just posted
+    loadExisting()
   }
 
-  const noTargets = !timetableLoading && targets.length === 0
   const filterText = (value) => {
     const target = targets.find((t) => t.key === value)
     return target ? targetText(target) : 'All classes and subjects'
+  }
+
+  // One short line saying why Post is not offered, so the missing button is not a mystery.
+  let postNote = null
+  if (!isToday) {
+    postNote = 'Assignments can only be posted with today as the Assigned Date. Use View to look at other dates.'
+  } else if (alreadyAssigned) {
+    postNote = 'This class and subject already has an assignment for today. Use Edit on its box below to change it.'
+  } else if (canOfferPost && blockedReason) {
+    postNote = blockedReason
+  } else if (canOfferPost) {
+    postNote = nonWorkingReason(draft.dueDate) ? `The due date falls on ${nonWorkingReason(draft.dueDate)}.` : null
   }
 
   return (
@@ -185,15 +207,17 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
         </div>
 
         <Button type="button" variant="outline" onClick={() => setApplied({ ...draft })}>View</Button>
-        <Button
-          type="button"
-          className="ml-auto"
-          onClick={togglePostForm}
-          disabled={timetableLoading || noTargets}
-        >
-          <Plus className="mr-1.5 size-3.5" />
-          Post Assignment
-        </Button>
+        {canOfferPost && (
+          <Button
+            type="button"
+            className="ml-auto"
+            onClick={togglePostForm}
+            disabled={timetableLoading || Boolean(blockedReason)}
+          >
+            <Plus className="mr-1.5 size-3.5" />
+            Post Assignment
+          </Button>
+        )}
       </div>
 
       {noTargets && (
@@ -201,20 +225,20 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
           You have no classes in the timetable yet, so there is nothing to assign.
         </p>
       )}
+      {!noTargets && postNote && (
+        <p className={`-mt-2 text-xs ${canOfferPost && !blockedReason ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+          {postNote}
+        </p>
+      )}
 
-      {showForm && (
+      {showForm && selectedTarget && (
         <PostAssignmentForm
-          assignedDate={postDates.assignedDate}
-          dueDate={postDates.dueDate}
-          maxAssignedDate={toLocalDateString()}
-          minDueDate={toLocalDateString()}
-          onAssignedDateChange={handleAssignedDateChange}
-          onDueDateChange={(value) => setPostDates((d) => ({ ...d, dueDate: value }))}
-          availableTargets={availableTargets}
-          hiddenCount={hiddenCount}
+          classLabel={selectedTarget.classLabel}
+          subjectName={selectedTarget.subjectName}
+          assignedDate={draft.assignedDate}
+          dueDate={draft.dueDate}
           saving={saving}
           error={formError}
-          dueReason={nonWorkingReason(postDates.dueDate)}
           onSubmit={handleSave}
           onCancel={() => setShowForm(false)}
         />
@@ -231,7 +255,7 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
       {!loading && !error && boxes.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border py-14 text-center">
           <p className="text-sm font-medium text-foreground">No assignments for these filters</p>
-          <p className="text-xs text-muted-foreground">Change the dates or the filter and press View, or post a new assignment.</p>
+          <p className="text-xs text-muted-foreground">Change the dates or the filter and press View.</p>
         </div>
       )}
 
