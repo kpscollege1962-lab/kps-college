@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialog'
-import { toLocalDateString } from '@/lib/dateUtils'
+import { formatDate, toLocalDateString } from '@/lib/dateUtils'
 import { nonWorkingReason } from '@/lib/workingDays'
 import { listMyAssignmentsService } from '../services/teacherWorkspace.service'
 import { useMyAssignments } from '../hooks/useMyAssignments'
@@ -21,11 +21,21 @@ const ALL = 'all'
 
 const targetText = (t) => `${t.classLabel} ${t.subjectName}`
 
-// An empty date means "any". "All" in the timetable filter means every class and subject.
+// "on Nov 20, 2026", "from … to …", "from …", "up to …" or "on any date".
+const rangeText = ({ assignedDate: from, dueDate: to }) => {
+  if (from && to) return from === to ? `on ${formatDate(from)}` : `from ${formatDate(from)} to ${formatDate(to)}`
+  if (from) return `from ${formatDate(from)}`
+  if (to) return `up to ${formatDate(to)}`
+  return 'on any date'
+}
+
+// View treats the two dates as a range on the ASSIGNED date: Assigned Date is "from",
+// Due Date is "to", both inclusive, and an empty one leaves that end open.
+// "All" in the timetable filter means every class and subject.
 const filtersFor = (filters, targets) => {
   const params = {}
-  if (filters.assignedDate) params.assignedDate = filters.assignedDate
-  if (filters.dueDate) params.dueDate = filters.dueDate
+  if (filters.assignedDate) params.assignedFrom = filters.assignedDate
+  if (filters.dueDate) params.assignedTo = filters.dueDate
   const target = filters.target !== ALL ? targets.find((t) => t.key === filters.target) : null
   if (target) {
     params.classGroupId = target.classGroupId
@@ -95,6 +105,7 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
   const existingReady = existing.date === today
   const alreadyAssigned = Boolean(selectedTarget && existingReady && existing.keys.has(selectedTarget.key))
   const noTargets = !timetableLoading && targets.length === 0
+  const reversedRange = Boolean(draft.assignedDate && draft.dueDate && draft.dueDate < draft.assignedDate)
 
   // The Post button exists only for today, and not for a class + subject that already has work.
   const canOfferPost = isToday && existingReady && !alreadyAssigned && !noTargets
@@ -156,7 +167,9 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
 
   // One short line saying why Post is not offered, so the missing button is not a mystery.
   let postNote = null
-  if (!isToday) {
+  if (reversedRange) {
+    postNote = 'The Due Date is before the Assigned Date, so nothing matches and nothing can be posted.'
+  } else if (!isToday) {
     postNote = 'Assignments can only be posted with today as the Assigned Date. Use View to look at other dates.'
   } else if (alreadyAssigned) {
     postNote = 'This class and subject already has an assignment for today. Use Edit on its box below to change it.'
@@ -251,6 +264,12 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
       )}
 
       {!loading && error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+
+      {!loading && !error && (
+        <p className="text-sm text-muted-foreground">
+          {boxes.length} assignment{boxes.length === 1 ? '' : 's'} given {rangeText(applied)}
+        </p>
+      )}
 
       {!loading && !error && boxes.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border py-14 text-center">

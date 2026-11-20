@@ -12,12 +12,21 @@ const day = (value) => String(value).slice(0, 10);
 const nameOf = (info) => [info.className, info.sectionName, info.subjectName].filter(Boolean).join(' ');
 
 const listMyAssignments = async ({
-  campusId, userId, sessionId, assignedDate, dueDate, classGroupId, sectionId, subjectId,
+  campusId, userId, sessionId, assignedDate, dueDate, assignedFrom, assignedTo,
+  classGroupId, sectionId, subjectId,
 }) => {
   const staff = await getMyStaffRecord(userId);
 
   const where = { campus_id: campusId, session_id: sessionId, staff_id: staff.id };
-  if (assignedDate) where.assigned_date = assignedDate;
+  // An exact assigned date wins; otherwise [assignedFrom, assignedTo] is an inclusive range
+  // on the ASSIGNED date, and either end may be left open.
+  if (assignedDate) {
+    where.assigned_date = assignedDate;
+  } else if (assignedFrom || assignedTo) {
+    where.assigned_date = {};
+    if (assignedFrom) where.assigned_date[Op.gte] = day(assignedFrom);
+    if (assignedTo)   where.assigned_date[Op.lte] = day(assignedTo);
+  }
   if (dueDate)      where.due_date = dueDate;
   if (classGroupId) where.class_group_id = classGroupId;
   if (sectionId)    where.section_id = sectionId;

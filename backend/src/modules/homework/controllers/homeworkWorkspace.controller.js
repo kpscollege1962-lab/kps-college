@@ -13,6 +13,8 @@ const mineCtrl = async (req, res) => {
     sessionId:    parseInt(q.sessionId),
     assignedDate: q.assignedDate,
     dueDate:      q.dueDate,
+    assignedFrom: q.assignedFrom,
+    assignedTo:   q.assignedTo,
     classGroupId: toInt(q.classGroupId),
     sectionId:    toInt(q.sectionId),
     subjectId:    toInt(q.subjectId),

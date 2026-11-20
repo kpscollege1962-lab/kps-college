@@ -4,6 +4,8 @@ const mineRules = [
   query('sessionId').isInt({ min: 1 }).withMessage('sessionId is required'),
   query('assignedDate').optional().isISO8601().withMessage('Invalid assigned date'),
   query('dueDate').optional().isISO8601().withMessage('Invalid due date'),
+  query('assignedFrom').optional().isISO8601().withMessage('Invalid from date'),
+  query('assignedTo').optional().isISO8601().withMessage('Invalid to date'),
   query('classGroupId').optional().isInt({ min: 1 }),
   query('sectionId').optional().isInt({ min: 1 }),
   query('subjectId').optional().isInt({ min: 1 }),
