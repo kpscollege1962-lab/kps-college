@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const {
-  sequelize, Homework, TimetableSlot, ClassGroup, Section, Subject,
+  sequelize, Homework, TimetableSlot, ClassGroup, Section, Subject, Staff,
 } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
 const { getMyStaffRecord } = require('../../teacher/utils/myStaff');
@@ -43,6 +43,25 @@ const listMyAssignments = async ({
     limit: 500,
   });
 };
+
+
+// Every teacher's classwork and homework for one class + section: the form master's proforma.
+// The caller must already have checked that the user may see this class.
+const listClassReport = async ({ campusId, sessionId, classGroupId, sectionId }) =>
+  Homework.findAll({
+    where: {
+      campus_id: campusId, session_id: sessionId,
+      class_group_id: classGroupId, section_id: sectionId,
+    },
+    include: [
+      { model: Subject,    as: 'subject',    attributes: ['id', 'name'] },
+      { model: Staff,      as: 'postedBy',   attributes: ['id', 'full_name'] },
+      { model: ClassGroup, as: 'classGroup', attributes: ['id', 'name', 'level'] },
+      { model: Section,    as: 'section',    attributes: ['id', 'name'] },
+    ],
+    order: [['assigned_date', 'DESC'], ['due_date', 'DESC'], ['id', 'ASC']],
+    limit: 500,
+  });
 
 
 const createHomeworkBatch = async ({
@@ -150,4 +169,4 @@ const createHomeworkBatch = async ({
   }
 };
 
-module.exports = { listMyAssignments, createHomeworkBatch };
+module.exports = { listMyAssignments, listClassReport, createHomeworkBatch };

@@ -6,7 +6,7 @@ const validate = require('../../../middlewares/validate');
 const upload = require('../../../middlewares/upload');
 const { listRules, homeworkIdParamRules, createRules, updateRules } = require('../validators/homework.validator');
 const { overviewRules, structureRules } = require('../validators/homeworkOverview.validator');
-const { mineRules, batchRules } = require('../validators/homeworkWorkspace.validator');
+const { mineRules, reportRules, batchRules } = require('../validators/homeworkWorkspace.validator');
 const ctrl = require('../controllers/homework.controller');
 const overviewCtrl = require('../controllers/homeworkOverview.controller');
 const brandingCtrl = require('../controllers/homeworkBranding.controller');
@@ -15,7 +15,7 @@ const workspaceCtrl = require('../controllers/homeworkWorkspace.controller');
 const router = Router({ mergeParams: true });
 
 router.get('/',
-  authenticate,
+  authenticate, loadAbility,
   listRules, validate,
   ctrl.list);
 
@@ -30,6 +30,13 @@ router.get('/mine',
   mineRules, validate,
   requirePermission('manage', 'Homework'),
   workspaceCtrl.mine);
+
+// Form master's class-wide proforma (403 unless the caller has Period 1 in that class)
+router.get('/form-master-report',
+  authenticate, loadAbility,
+  reportRules, validate,
+  requirePermission('manage', 'Homework'),
+  workspaceCtrl.report);
 
 // Post classwork and/or homework to several classes with one save
 router.post('/batch',

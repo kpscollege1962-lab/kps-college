@@ -11,6 +11,13 @@ const mineRules = [
   query('subjectId').optional().isInt({ min: 1 }),
 ];
 
+// Class-wide proforma for a form-master class.
+const reportRules = [
+  query('sessionId').isInt({ min: 1 }).withMessage('sessionId is required'),
+  query('classGroupId').isInt({ min: 1 }).withMessage('classGroupId is required'),
+  query('sectionId').isInt({ min: 1 }).withMessage('sectionId is required'),
+];
+
 const batchRules = [
   body('sessionId').isInt({ min: 1 }).withMessage('sessionId is required'),
   body('assignedDate').isISO8601().withMessage('Assigned date is required'),
@@ -25,4 +32,4 @@ const batchRules = [
   body('targets.*.subjectId').isInt({ min: 1 }),
 ];
 
-module.exports = { mineRules, batchRules };
+module.exports = { mineRules, reportRules, batchRules };

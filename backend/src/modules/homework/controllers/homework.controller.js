@@ -3,6 +3,7 @@ const ApiResponse = require('../../../utils/ApiResponse');
 const ApiError = require('../../../utils/ApiError');
 const { listHomework, getHomeworkById, createHomework, updateHomework, deleteHomework } = require('../services/homework.service');
 const { Staff } = require('../../../models');
+const { assertFormMaster } = require('../../teacher/utils/formMaster');
 
 // Resolve the acting teacher's Staff record from the JWT user — never trust a client-supplied staffId.
 const resolveStaffId = async (userId) => {
@@ -19,6 +20,14 @@ const listCtrl = async (req, res) => {
   // list every post in the campus.
   if (!mine && (!classGroupId || !sectionId)) {
     throw new ApiError(422, 'classGroupId and sectionId are required');
+  }
+
+  // A teacher account (manage Homework, but not Super Admin's manage all) may only list a whole
+  // class this way if they are its form master, the same rule as the form-master report.
+  // Other roles keep their current access.
+  const isTeacherCall = req.ability.can('manage', 'Homework') && !req.ability.can('manage', 'all');
+  if (!mine && isTeacherCall) {
+    await assertFormMaster(req.user.id, campusId, parseInt(classGroupId), parseInt(sectionId));
   }
 
   const staffId = mine ? await resolveStaffId(req.user.id) : undefined;
