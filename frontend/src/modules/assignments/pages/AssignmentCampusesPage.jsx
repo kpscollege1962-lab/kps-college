@@ -1,20 +1,29 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router'
+import { Link, Navigate } from 'react-router'
 import { Building2, ChevronRight } from 'lucide-react'
 import { useAbility } from '@casl/react'
 import { AbilityContext } from '@/casl/AbilityProvider'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import ROLES from '@/constants/roles'
+import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useCampusList } from '../hooks/useCampusList'
 
 export default function AssignmentCampusesPage() {
   const ability = useAbility(AbilityContext)
   const canView = ability.can('read', 'HomeworkOverview')
   const { campuses, loading, error, fetchCampuses } = useCampusList()
+  const { activeRole } = useRoleContext()
+
+  // Campus Admin and Principal belong to one campus, and Super Admin works in the Working
+  // campus picked in the sidebar: they go straight to it. School Admin chooses here.
+  const ownCampusId = activeRole?.roleName !== ROLES.SCHOOL_ADMIN ? activeRole?.campusId : null
 
   useEffect(() => {
-    if (canView) fetchCampuses()
-  }, [canView, fetchCampuses])
+    if (canView && !ownCampusId) fetchCampuses()
+  }, [canView, ownCampusId, fetchCampuses])
+
+  if (canView && ownCampusId) return <Navigate to={`/portal/assignments/${ownCampusId}`} replace />
 
   if (!canView) {
     return (

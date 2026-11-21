@@ -1,4 +1,4 @@
-const { TimetablePeriod } = require('../../../models');
+const { TimetablePeriod, TimetableSlot, ClassGroup, Staff } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
 const { listMyTimetable } = require('../services/myTimetable.service');
 
@@ -49,4 +49,44 @@ const assertFormMaster = async (userId, campusId, classGroupId, sectionId) => {
   }
 };
 
-module.exports = { listMyFormMasterClasses, isMyFormMasterClass, assertFormMaster };
+// Every class + section's form master(s) at a campus, for the admin screens: the teachers of the
+// Period 1 slot (same first-teaching-period rule; both teachers of a shared slot count).
+// -> [{ classGroupId, sectionId, staffId, staffName }]
+const listCampusFormMasters = async (campusId, sessionId) => {
+  const firstPeriod = await firstTeachingPeriodNumber(campusId);
+  if (firstPeriod == null) return [];
+
+  const slots = await TimetableSlot.findAll({
+    include: [
+      {
+        model: TimetablePeriod, as: 'period', required: true, attributes: [],
+        where: { campus_id: campusId, period_number: firstPeriod, is_assembly: false },
+      },
+      {
+        model: ClassGroup, as: 'classGroup', required: true, attributes: [],
+        where: { campus_id: campusId, session_id: sessionId },
+      },
+      { model: Staff, as: 'staff1', attributes: ['id', 'full_name'] },
+      { model: Staff, as: 'staff2', attributes: ['id', 'full_name'] },
+    ],
+  });
+
+  const seen = new Map();
+  for (const slot of slots) {
+    for (const staff of [slot.staff1, slot.staff2]) {
+      if (!staff || slot.section_id == null) continue;
+      const key = `${slot.class_group_id}-${slot.section_id}-${staff.id}`;
+      if (!seen.has(key)) {
+        seen.set(key, {
+          classGroupId: slot.class_group_id,
+          sectionId:    slot.section_id,
+          staffId:      staff.id,
+          staffName:    staff.full_name,
+        });
+      }
+    }
+  }
+  return [...seen.values()];
+};
+
+module.exports = { listMyFormMasterClasses, isMyFormMasterClass, assertFormMaster, listCampusFormMasters };

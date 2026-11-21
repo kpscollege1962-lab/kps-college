@@ -55,8 +55,15 @@ export const MASTER_NAV = [
             pages: { [SUPER_ADMIN]: '/portal/timetable', [CAMPUS_ADMIN]: '/portal/timetable', [STUDENT]: '/portal/timetable', [TEACHER]: '/portal/my-classes' },
             noHighlight: [TEACHER] },
           // Teachers post homework and classwork inside My classes, so theirs opens the same page.
+          // Admins and the principal get the Assignments page (view, proformas; admins also edit,
+          // delete, restore). Campus roles and Super Admin land on their own / Working campus.
           { id: 'homework', title: 'Homework',
-            pages: { [SUPER_ADMIN]: '/portal/assignments', [TEACHER]: '/portal/my-classes' }, noHighlight: [TEACHER] },
+            pages: {
+              [SUPER_ADMIN]: '/portal/assignments', [SCHOOL_ADMIN]: '/portal/assignments',
+              [CAMPUS_ADMIN]: '/portal/assignments', [PRINCIPAL]: '/portal/assignments',
+              [TEACHER]: '/portal/my-classes',
+            },
+            noHighlight: [TEACHER] },
           { id: 'attendance', title: 'Attendance', page: '/portal/attendance',
             live: [SUPER_ADMIN, CAMPUS_ADMIN, TEACHER, STUDENT] },
           { id: 'notebook-checking', title: 'Notebooks checking' },

@@ -1,4 +1,4 @@
-import { ChevronRight, FileText, Paperclip } from 'lucide-react'
+import { ChevronRight, FileText, Paperclip, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,8 @@ const primaryText = (view, a) => {
   return joinParts(a.subject?.name, a.postedBy?.full_name)
 }
 
-export default function AssignmentGroupCard({ group, rows, view, open, onToggle, onReport }) {
+// onEdit / onDelete: optional (only passed to admins allowed to change assignments).
+export default function AssignmentGroupCard({ group, rows, view, open, onToggle, onReport, onEdit, onDelete }) {
   const hasRows = rows.length > 0
 
   return (
@@ -33,6 +34,9 @@ export default function AssignmentGroupCard({ group, rows, view, open, onToggle,
             className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90', !hasRows && 'opacity-30')}
           />
           <span className="truncate text-sm font-semibold"><RichText text={group.label} ordinal /></span>
+          {group.formMaster && (
+            <span className="hidden truncate text-xs text-muted-foreground sm:inline">Form master: {group.formMaster}</span>
+          )}
           <Badge variant="outline" className="shrink-0 text-xs">{rows.length}</Badge>
           {!hasRows && <span className="text-xs text-muted-foreground">No assignments</span>}
         </button>
@@ -50,6 +54,23 @@ export default function AssignmentGroupCard({ group, rows, view, open, onToggle,
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium"><RichText text={primaryText(view, a)} ordinal /></span>
                 <Badge variant="outline" className="text-xs capitalize">{a.type}</Badge>
+                {(onEdit || onDelete) && (
+                  <span className="ml-auto flex gap-1">
+                    {onEdit && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => onEdit(a)} aria-label="Edit assignment">
+                        <Pencil className="size-3.5" />
+                        <span className="ml-1.5 hidden sm:inline">Edit</span>
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => onDelete(a)} aria-label="Delete assignment"
+                        className="text-destructive hover:text-destructive">
+                        <Trash2 className="size-3.5" />
+                        <span className="ml-1.5 hidden sm:inline">Delete</span>
+                      </Button>
+                    )}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 {a.assigned_date && <>Assigned {fmt(a.assigned_date)} · </>}Due {fmt(a.due_date)}

@@ -8,3 +8,5 @@ dist/
 backend/dist/
 frontend/dist/
 *.log
+# Database backups made by backend/src/scripts (contain school data)
+backend/backups/

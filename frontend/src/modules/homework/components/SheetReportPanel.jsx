@@ -28,12 +28,13 @@ const fmtChip = (d) =>
 const PlainFooter = ({ children }) => <div className="flex flex-wrap justify-end gap-2">{children}</div>
 
 export default function SheetReportPanel({
-  active = true, onClose, Footer = PlainFooter, campusId, label, view, assignments = [], loading = false, error = null, editableQuote = false,
+  active = true, onClose, Footer = PlainFooter, startAt = null, campusId, label, view, assignments = [], loading = false, error = null, editableQuote = false,
 }) {
   const FooterTag = Footer
   const sheetRef = useRef(null)
-  const [date, setDate]       = useState(() => toLocalDateString())
-  const [dueDate, setDueDate] = useState(() => getNextWorkingDay())
+  // startAt: optional { date, dueDate } to open on instead of today / next working day.
+  const [date, setDate]       = useState(() => startAt?.date ?? toLocalDateString())
+  const [dueDate, setDueDate] = useState(() => startAt?.dueDate ?? getNextWorkingDay())
   const [quote, setQuote]     = useState(DEFAULT_QUOTE)
   const [fit, setFit]         = useState({ scale: 1, overflow: false })
   const [exporting, setExporting]     = useState(false)
@@ -44,11 +45,11 @@ export default function SheetReportPanel({
   useEffect(() => {
     if (!active) return
     const today = toLocalDateString()
-    setDate(today)
-    setDueDate(getNextWorkingDay(today))
+    setDate(startAt?.date ?? today)
+    setDueDate(startAt?.dueDate ?? getNextWorkingDay(today))
     setQuote(DEFAULT_QUOTE)
     setExportError(null)
-  }, [active])
+  }, [active, startAt?.date, startAt?.dueDate])
 
   const handleDateChange = (value) => {
     setDate(value)

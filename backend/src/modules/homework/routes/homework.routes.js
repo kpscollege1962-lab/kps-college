@@ -5,12 +5,14 @@ const requirePermission = require('../../../middlewares/requirePermission');
 const validate = require('../../../middlewares/validate');
 const upload = require('../../../middlewares/upload');
 const { listRules, homeworkIdParamRules, createRules, updateRules } = require('../validators/homework.validator');
-const { overviewRules, structureRules } = require('../validators/homeworkOverview.validator');
+const { overviewRules, structureRules, deletedRules } = require('../validators/homeworkOverview.validator');
+const { idRules: adminIdRules, adminUpdateRules } = require('../validators/homeworkAdmin.validator');
 const { mineRules, reportRules, batchRules } = require('../validators/homeworkWorkspace.validator');
 const ctrl = require('../controllers/homework.controller');
 const overviewCtrl = require('../controllers/homeworkOverview.controller');
 const brandingCtrl = require('../controllers/homeworkBranding.controller');
 const workspaceCtrl = require('../controllers/homeworkWorkspace.controller');
+const adminCtrl = require('../controllers/homeworkAdmin.controller');
 
 const router = Router({ mergeParams: true });
 
@@ -45,7 +47,8 @@ router.post('/batch',
   requirePermission('manage', 'Homework'),
   workspaceCtrl.batch);
 
-// Admin overview (Super Admin only: no other role is granted HomeworkOverview)
+// Admin overview: Super Admin, School Admin, Campus Admin and Principal (read HomeworkOverview,
+// campus-scoped by the ability factory). Teachers have no HomeworkOverview rule, so they get 403.
 router.get('/overview',
   authenticate, loadAbility,
   overviewRules, validate,
@@ -57,6 +60,38 @@ router.get('/overview/structure',
   structureRules, validate,
   requirePermission('read', 'HomeworkOverview'),
   overviewCtrl.structure);
+
+// Recently deleted (soft-deleted) assignments, for Restore / Delete permanently
+router.get('/overview/deleted',
+  authenticate, loadAbility,
+  deletedRules, validate,
+  requirePermission('restore', 'HomeworkOverview'),
+  overviewCtrl.deleted);
+
+// ── Admin actions on any teacher's assignment (never on Homework: teachers have manage Homework) ──
+router.patch('/admin/:homeworkId',
+  authenticate, loadAbility,
+  adminUpdateRules, validate,
+  requirePermission('update', 'HomeworkOverview'),
+  adminCtrl.update);
+
+router.delete('/admin/:homeworkId',
+  authenticate, loadAbility,
+  adminIdRules, validate,
+  requirePermission('delete', 'HomeworkOverview'),
+  adminCtrl.delete);
+
+router.post('/admin/:homeworkId/restore',
+  authenticate, loadAbility,
+  adminIdRules, validate,
+  requirePermission('restore', 'HomeworkOverview'),
+  adminCtrl.restore);
+
+router.delete('/admin/:homeworkId/permanent',
+  authenticate, loadAbility,
+  adminIdRules, validate,
+  requirePermission('restore', 'HomeworkOverview'),
+  adminCtrl.permanentDelete);
 
 router.get('/:homeworkId',
   authenticate,

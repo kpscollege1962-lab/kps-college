@@ -86,14 +86,29 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    // Audit: who last edited / who deleted (soft delete). Added by scripts/addHomeworkSoftDelete.js.
+    updated_by_user_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
+    },
+    deleted_by_user_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
+    },
   }, {
     tableName: 'homeworks',
     timestamps: true,
-    paranoid: false,
+    // Soft delete: destroy() sets deleted_at, and every query skips those rows unless it passes
+    // `paranoid: false`. Only the admin "Recently deleted" / restore / permanent delete do that.
+    paranoid: true,
+    deletedAt: 'deleted_at',
     indexes: [
       { fields: ['class_group_id', 'section_id'], name: 'idx_homework_class_section' },
       { fields: ['staff_id'], name: 'idx_homework_staff_id' },
       { fields: ['session_id'], name: 'idx_homework_session_id' },
+      { fields: ['deleted_at'], name: 'idx_homework_deleted_at' },
     ],
   });
 };

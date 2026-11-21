@@ -1,7 +1,7 @@
 module.exports = (db) => {
   const {
     Campus, AcademicSession, ClassGroup, Section, Subject, Staff, Enrollment,
-    Homework, HomeworkSubmission,
+    Homework, HomeworkSubmission, User,
   } = db;
 
   // ── Homework ──────────────────────────────────────────────────────────────
@@ -22,6 +22,10 @@ module.exports = (db) => {
 
   Staff.hasMany(Homework, { foreignKey: 'staff_id', as: 'postedHomeworks' });
   Homework.belongsTo(Staff, { foreignKey: 'staff_id', as: 'postedBy' });
+
+  // Audit (soft delete): who last edited, who deleted.
+  Homework.belongsTo(User, { foreignKey: 'updated_by_user_id', as: 'updatedBy', constraints: false });
+  Homework.belongsTo(User, { foreignKey: 'deleted_by_user_id', as: 'deletedBy', constraints: false });
 
   // ── HomeworkSubmission ────────────────────────────────────────────────────
   Homework.hasMany(HomeworkSubmission, { foreignKey: 'homework_id', as: 'submissions' });

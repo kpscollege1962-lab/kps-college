@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialog'
-import { formatDate, toLocalDateString } from '@/lib/dateUtils'
+import { toLocalDateString } from '@/lib/dateUtils'
+import { assignedRangeParams, assignedRangeText } from '@/modules/homework/utils/dateRange'
 import { nonWorkingReason } from '@/lib/workingDays'
 import { listMyAssignmentsService } from '../services/teacherWorkspace.service'
 import { useMyAssignments } from '../hooks/useMyAssignments'
@@ -21,21 +22,11 @@ const ALL = 'all'
 
 const targetText = (t) => `${t.classLabel} ${t.subjectName}`
 
-// "on Nov 20, 2026", "from … to …", "from …", "up to …" or "on any date".
-const rangeText = ({ assignedDate: from, dueDate: to }) => {
-  if (from && to) return from === to ? `on ${formatDate(from)}` : `from ${formatDate(from)} to ${formatDate(to)}`
-  if (from) return `from ${formatDate(from)}`
-  if (to) return `up to ${formatDate(to)}`
-  return 'on any date'
-}
-
 // View treats the two dates as a range on the ASSIGNED date: Assigned Date is "from",
 // Due Date is "to", both inclusive, and an empty one leaves that end open.
 // "All" in the timetable filter means every class and subject.
 const filtersFor = (filters, targets) => {
-  const params = {}
-  if (filters.assignedDate) params.assignedFrom = filters.assignedDate
-  if (filters.dueDate) params.assignedTo = filters.dueDate
+  const params = assignedRangeParams(filters)
   const target = filters.target !== ALL ? targets.find((t) => t.key === filters.target) : null
   if (target) {
     params.classGroupId = target.classGroupId
@@ -267,7 +258,7 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
 
       {!loading && !error && (
         <p className="text-sm text-muted-foreground">
-          {boxes.length} assignment{boxes.length === 1 ? '' : 's'} given {rangeText(applied)}
+          {boxes.length} assignment{boxes.length === 1 ? '' : 's'} given {assignedRangeText(applied)}
         </p>
       )}
 

@@ -7,7 +7,8 @@
     "dev": "nodemon src/server.js",
     "db:sync": "node src/database/sync.js",
     "db:seed": "node src/seeders/index.js",
-    "worker:email": "node src/workers/emailWorkerThread.js"
+    "worker:email": "node src/workers/emailWorkerThread.js",
+    "test": "node --test --test-force-exit tests/"
   },
   "dependencies": {
     "@casl/ability": "^6.8.0",

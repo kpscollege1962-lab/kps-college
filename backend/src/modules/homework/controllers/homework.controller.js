@@ -1,7 +1,9 @@
 const { matchedData } = require('express-validator');
 const ApiResponse = require('../../../utils/ApiResponse');
 const ApiError = require('../../../utils/ApiError');
-const { listHomework, getHomeworkById, createHomework, updateHomework, deleteHomework } = require('../services/homework.service');
+const {
+  listHomework, getHomeworkById, createHomework, updateHomework, deleteHomework, assertOwnHomework,
+} = require('../services/homework.service');
 const { Staff } = require('../../../models');
 const { assertFormMaster } = require('../../teacher/utils/formMaster');
 
@@ -73,18 +75,29 @@ const createCtrl = async (req, res) => {
   res.status(201).json(ApiResponse.success('Homework posted', { homework }));
 };
 
+// Ownership: on these teacher routes a teacher may only change their own posts. Super Admin
+// (manage all) is exempt. Admins change anyone's posts through the /admin routes instead.
+const assertMayChange = async (req, homeworkId, campusId) => {
+  if (req.ability.can('manage', 'all')) return;
+  await assertOwnHomework(homeworkId, campusId, await resolveStaffId(req.user.id));
+};
+
 const updateCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
   const homeworkId = parseInt(req.params.homeworkId);
+  await assertMayChange(req, homeworkId, campusId);
   const { title, description, assignedDate, dueDate, type } = matchedData(req, { locations: ['body'] });
-  const homework = await updateHomework(homeworkId, campusId, { title, description, assignedDate, dueDate, type, file: req.file });
+  const homework = await updateHomework(homeworkId, campusId, {
+    title, description, assignedDate, dueDate, type, file: req.file, userId: req.user.id,
+  });
   res.json(ApiResponse.success('Homework updated', { homework }));
 };
 
 const deleteCtrl = async (req, res) => {
   const campusId = parseInt(req.params.campusId);
   const homeworkId = parseInt(req.params.homeworkId);
-  await deleteHomework(homeworkId, campusId);
+  await assertMayChange(req, homeworkId, campusId);
+  await deleteHomework(homeworkId, campusId, req.user.id); // soft delete
   res.json(ApiResponse.success('Homework deleted'));
 };
 

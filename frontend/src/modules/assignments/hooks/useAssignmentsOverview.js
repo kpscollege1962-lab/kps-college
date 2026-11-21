@@ -3,6 +3,7 @@ import { getAssignmentsOverviewService, getAssignmentsStructureService } from '.
 
 export const useAssignmentsOverview = (campusId) => {
   const [structure, setStructure]     = useState([])
+  const [formMasters, setFormMasters] = useState([]) // [{ classGroupId, sectionId, staffId, staffName }]
   const [assignments, setAssignments] = useState([])
   const [truncated, setTruncated]     = useState(false)
   const [loading, setLoading]         = useState(false)
@@ -11,8 +12,12 @@ export const useAssignmentsOverview = (campusId) => {
 
   const fetchStructure = useCallback(async (sessionId) => {
     const result = await getAssignmentsStructureService(campusId, { sessionId })
-    if (result.success) setStructure(result.data.structure)
-    else setError(result.message)
+    if (result.success) {
+      setStructure(result.data.structure)
+      setFormMasters(result.data.formMasters ?? [])
+    } else {
+      setError(result.message)
+    }
   }, [campusId])
 
   const fetchAssignments = useCallback(async (params) => {
@@ -30,5 +35,5 @@ export const useAssignmentsOverview = (campusId) => {
     }
   }, [campusId])
 
-  return { structure, assignments, truncated, loading, error, fetchStructure, fetchAssignments }
+  return { structure, formMasters, assignments, truncated, loading, error, fetchStructure, fetchAssignments }
 }

@@ -1,14 +1,27 @@
 const { Op } = require('sequelize');
-const { Homework, Subject, Staff, ClassGroup, Section, TimetableSlot } = require('../../../models');
+const { sequelize, Homework, HomeworkSubmission, Subject, Staff, ClassGroup, Section, TimetableSlot, User } = require('../../../models');
 
 const OVERVIEW_LIMIT = 500;
 
-// ── All assignments in a campus + session, optionally within a due-date range ──
-const listHomeworkOverview = async ({ campusId, sessionId, dueFrom, dueTo }) => {
+const day = (value) => String(value).slice(0, 10);
+
+// ── Live assignments in a campus + session ──────────────────────────────────
+// Same date-range rule as the teacher page: [assignedFrom, assignedTo] is an inclusive range on
+// the ASSIGNED date and either end may be empty (open). Soft-deleted rows are excluded by the
+// paranoid model. Optional class / section / subject / teacher filters.
+const listHomeworkOverview = async ({
+  campusId, sessionId, assignedFrom, assignedTo, classGroupId, sectionId, subjectId, staffId,
+}) => {
   const where = { campus_id: campusId, session_id: sessionId };
-  if (dueFrom && dueTo) where.due_date = { [Op.between]: [dueFrom, dueTo] };
-  else if (dueFrom)     where.due_date = { [Op.gte]: dueFrom };
-  else if (dueTo)       where.due_date = { [Op.lte]: dueTo };
+  if (assignedFrom || assignedTo) {
+    where.assigned_date = {};
+    if (assignedFrom) where.assigned_date[Op.gte] = day(assignedFrom);
+    if (assignedTo)   where.assigned_date[Op.lte] = day(assignedTo);
+  }
+  if (classGroupId) where.class_group_id = classGroupId;
+  if (sectionId)    where.section_id = sectionId;
+  if (subjectId)    where.subject_id = subjectId;
+  if (staffId)      where.staff_id = staffId;
 
   const { count, rows } = await Homework.findAndCountAll({
     where,
@@ -18,11 +31,43 @@ const listHomeworkOverview = async ({ campusId, sessionId, dueFrom, dueTo }) => 
       { model: ClassGroup, as: 'classGroup', attributes: ['id', 'name', 'level'] },
       { model: Section,    as: 'section',    attributes: ['id', 'name'] },
     ],
-    order: [['due_date', 'DESC'], ['created_at', 'DESC']],
+    order: [['assigned_date', 'DESC'], ['due_date', 'DESC'], ['created_at', 'DESC']],
     limit: OVERVIEW_LIMIT,
   });
 
   return { data: rows, total: count, truncated: count > OVERVIEW_LIMIT };
+};
+
+// ── "Recently deleted": soft-deleted assignments in a campus + session ──────
+// Newest deletion first, with who deleted it and how many student submissions it has
+// (the permanent-delete warning needs that).
+const listDeletedHomework = async ({ campusId, sessionId }) => {
+  const rows = await Homework.findAll({
+    where: { campus_id: campusId, session_id: sessionId, deleted_at: { [Op.ne]: null } },
+    paranoid: false,
+    include: [
+      { model: Subject,    as: 'subject',    attributes: ['id', 'name'] },
+      { model: Staff,      as: 'postedBy',   attributes: ['id', 'full_name'] },
+      { model: ClassGroup, as: 'classGroup', attributes: ['id', 'name', 'level'] },
+      { model: Section,    as: 'section',    attributes: ['id', 'name'] },
+      { model: User,       as: 'deletedBy',  attributes: ['id', 'username', 'first_name', 'last_name'] },
+    ],
+    order: [['deleted_at', 'DESC'], ['id', 'DESC']],
+    limit: OVERVIEW_LIMIT,
+  });
+
+  const ids = rows.map((r) => r.id);
+  const counts = ids.length
+    ? await HomeworkSubmission.findAll({
+        where: { homework_id: { [Op.in]: ids } },
+        attributes: ['homework_id', [sequelize.fn('COUNT', sequelize.col('id')), 'n']],
+        group: ['homework_id'],
+        raw: true,
+      })
+    : [];
+  const byId = new Map(counts.map((c) => [c.homework_id, Number(c.n)]));
+
+  return rows.map((r) => ({ ...r.toJSON(), submissionCount: byId.get(r.id) ?? 0 }));
 };
 
 // ── Who teaches what, where: one row per (class, section, subject, teacher), ──
@@ -71,4 +116,4 @@ const getHomeworkStructure = async ({ campusId, sessionId }) => {
   return [...seen.values()];
 };
 
-module.exports = { listHomeworkOverview, getHomeworkStructure };
+module.exports = { listHomeworkOverview, listDeletedHomework, getHomeworkStructure };
