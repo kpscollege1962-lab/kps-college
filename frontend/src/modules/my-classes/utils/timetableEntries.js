@@ -7,6 +7,7 @@ export const buildCards = (entries) =>
   entries
     .map((e) => ({
       key: e.slotId,
+      periodNumber: e.periodNumber,
       periodName: periodTitle(e.isAssembly, e.periodNumber),
       level: e.level ?? 0,
       sectionName: e.sectionName ?? '',

@@ -41,7 +41,8 @@ const filtersFor = (filters, targets) => {
 //   Post          posts to the class + subject chosen in that filter, on those dates.
 // Post is only there when the Assigned Date is today and the chosen class + subject has nothing
 // assigned yet for today, so the Post form itself only asks for the classwork and homework text.
-export default function AssignmentsSection({ campusId, sessionId, targets, timetableLoading }) {
+// actions: optional buttons from the page (View Report), shown next to Post Assignment.
+export default function AssignmentsSection({ campusId, sessionId, targets, timetableLoading, actions = null }) {
   const [initial] = useState(() => {
     const today = toLocalDateString()
     return { assignedDate: today, dueDate: today, target: ALL } // due the same day by default
@@ -174,31 +175,31 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
     <section className="space-y-4">
       <h2 className="text-lg font-semibold">Assignments</h2>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="as-assigned">Assigned Date</Label>
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-4">
+        <div className="grid w-full gap-1.5 sm:w-40">
+          <Label htmlFor="as-assigned" className="text-xs text-muted-foreground">Assigned Date</Label>
           <Input
             id="as-assigned"
             type="date"
             value={draft.assignedDate}
             onChange={(e) => setDraft((d) => ({ ...d, assignedDate: e.target.value }))}
-            className="w-44"
+            className="h-9 w-full"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="as-due">Due Date</Label>
+        <div className="grid w-full gap-1.5 sm:w-40">
+          <Label htmlFor="as-due" className="text-xs text-muted-foreground">Due Date</Label>
           <Input
             id="as-due"
             type="date"
             value={draft.dueDate}
             onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
-            className="w-44"
+            className="h-9 w-full"
           />
         </div>
-        <div className="min-w-[14rem] max-w-sm flex-1 space-y-1.5">
-          <Label>Timetable wise filter</Label>
+        <div className="grid w-full min-w-[14rem] gap-1.5 sm:w-auto sm:max-w-xs sm:flex-1">
+          <Label htmlFor="as-target" className="text-xs text-muted-foreground">Timetable wise filter</Label>
           <Select value={draft.target} onValueChange={(v) => setDraft((d) => ({ ...d, target: v }))}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="as-target" className="h-9 w-full data-[size=default]:h-9">
               <SelectValue>{(value) => (value === ALL ? 'All classes and subjects' : filterText(value))}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -209,18 +210,23 @@ export default function AssignmentsSection({ campusId, sessionId, targets, timet
             </SelectContent>
           </Select>
         </div>
+        <Button type="button" variant="outline" className="h-9" onClick={() => setApplied({ ...draft })}>View</Button>
 
-        <Button type="button" variant="outline" onClick={() => setApplied({ ...draft })}>View</Button>
-        {canOfferPost && (
-          <Button
-            type="button"
-            className="ml-auto"
-            onClick={togglePostForm}
-            disabled={timetableLoading || Boolean(blockedReason)}
-          >
-            <Plus className="mr-1.5 size-3.5" />
-            Post Assignment
-          </Button>
+        {(actions || canOfferPost) && (
+          <div className="flex flex-wrap items-end gap-2 sm:ml-auto">
+            {actions}
+            {canOfferPost && (
+              <Button
+                type="button"
+                className="h-9"
+                onClick={togglePostForm}
+                disabled={timetableLoading || Boolean(blockedReason)}
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                Post Assignment
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

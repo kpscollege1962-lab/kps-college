@@ -102,16 +102,13 @@ export default function ManageClassesPage() {
           sessionId={sessionId}
           targets={targets}
           timetableLoading={loading}
-        />
-
-        {formClasses.length > 0 && (
-          <div className="flex justify-end pt-8">
-            <Button type="button" size="sm" variant="outline" onClick={handleViewReport}>
+          actions={formClasses.length > 0 && (
+            <Button type="button" variant="outline" className="h-9" onClick={handleViewReport}>
               <FileText className="mr-1.5 size-3.5" />
               View Report
             </Button>
-          </div>
-        )}
+          )}
+        />
       </div>
 
       <FormMasterPicker

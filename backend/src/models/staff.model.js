@@ -1,4 +1,5 @@
 const { DataTypes } = require('sequelize');
+const { withTitle, stripTitle } = require('../utils/personTitle');
 
 module.exports = (sequelize) => {
   return sequelize.define('Staff', {
@@ -22,6 +23,14 @@ module.exports = (sequelize) => {
     full_name: {
       type: DataTypes.STRING(150),
       allowNull: false,
+      // Read: "Mr. NAME" / "Miss NAME" by gender (utils/personTitle). Save: any title is stripped,
+      // so the stored name is always plain. Plain value: staff.getDataValue('full_name').
+      get() {
+        return withTitle(this.getDataValue('full_name'), this.getDataValue('gender'));
+      },
+      set(value) {
+        this.setDataValue('full_name', stripTitle(value));
+      },
     },
     name_initials: {
       type: DataTypes.STRING(20),

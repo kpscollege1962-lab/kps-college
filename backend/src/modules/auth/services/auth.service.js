@@ -76,7 +76,8 @@ const provisionTeacher = async (staff, dob) => {
     throw new ApiError(403, 'You do not have an active posting at any campus');
   }
 
-  const { firstName, lastName } = splitFullName(staff.full_name);
+  // The plain stored name (full_name reads as "Mr. NAME" / "Miss NAME").
+  const { firstName, lastName } = splitFullName(staff.getDataValue('full_name'));
   const newUser = await createUser({
     first_name: firstName,
     last_name: lastName,

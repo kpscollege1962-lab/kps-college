@@ -2,6 +2,8 @@ import { classLabelText, joinParts } from './labels'
 
 const cmp = (a, b) => String(a ?? '').localeCompare(String(b ?? ''))
 const classOf = (a) => classLabelText(a.classGroup?.name, a.section?.name)
+// "MATHEMATICS (MR. HAIDER ALI KHAN)": the teacher in brackets after the class or subject.
+const withTeacher = (text, a) => (a.postedBy?.full_name ? joinParts(text, `(${a.postedBy.full_name})`) : text)
 
 // Each report type repeats one thing in the header, so the boxes show the rest:
 //   teacher report -> class + subject
@@ -15,12 +17,12 @@ const VIEWS = {
   },
   subject: {
     key: (a) => `${a.class_group_id}-${a.section_id}-${a.staff_id}`,
-    title: (a) => joinParts(classOf(a), a.postedBy?.full_name),
+    title: (a) => withTeacher(classOf(a), a),
     order: (x, y) => x.level - y.level || cmp(x.section, y.section) || cmp(x.teacher, y.teacher),
   },
   class: {
     key: (a) => `${a.subject_id}-${a.staff_id}`,
-    title: (a) => joinParts(a.subject?.name, a.postedBy?.full_name),
+    title: (a) => withTeacher(a.subject?.name, a),
     order: (x, y) => cmp(x.subject, y.subject) || cmp(x.teacher, y.teacher),
   },
 }

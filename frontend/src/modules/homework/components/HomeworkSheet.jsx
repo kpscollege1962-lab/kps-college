@@ -22,7 +22,7 @@ const itemText = (a, index, count) => {
 
 function WorkRow({ label, items }) {
   return (
-    <div className="flex min-h-[3rem] border-b border-black last:border-b-0">
+    <div className="flex min-h-[3rem] items-center border-b border-black last:border-b-0">
       <div className="w-16 shrink-0 px-3 py-2 text-sm font-bold">{label}</div>
       <div className="flex-1 space-y-1 px-3 py-1.5 text-sm leading-snug">
         {items.map((a, i) => (

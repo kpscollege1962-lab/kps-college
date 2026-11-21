@@ -50,7 +50,9 @@ const ClassLabel = ({ classGroupName, sectionName }) => {
 
 // Only applied when falling back to a staff member's full name (initials are
 // left as-is, since "Mr. H.A.K." would read oddly).
-const withMr = (fullName) => (fullName ? `Mr. ${fullName}` : fullName)
+// Staff names now arrive from the server with their title ("Mr." / "Miss"): keep it as is.
+const withMr = (fullName) =>
+  (!fullName || /^(mr|mrs|ms|miss)\.?\s/i.test(fullName) ? fullName : `Mr. ${fullName}`)
 
 // One line of text for a staff member — initials if available, else "Mr. Full Name".
 const staffDisplay = (staff) => staff?.name_initials ?? withMr(staff?.full_name) ?? '—'

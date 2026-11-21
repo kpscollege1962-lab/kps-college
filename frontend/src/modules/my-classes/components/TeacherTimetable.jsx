@@ -39,12 +39,12 @@ export default function TeacherTimetable({ cards, loading, error }) {
               onClick={() => navigate(`/portal/my-classes/${card.classGroupId}/${card.sectionId}`)}
               className="rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/40"
             >
-              <p className="text-xs font-semibold text-muted-foreground">{card.periodName}</p>
-              <p className="mt-0.5 text-sm font-semibold">
+              <p className="text-sm font-semibold">
                 <RichText text={card.classLabel} ordinal />
                 {card.subjectText && (
                   <span className="ml-2 font-normal text-muted-foreground"><RichText text={card.subjectText} /></span>
                 )}
+                <span className="ml-1.5 font-normal text-muted-foreground">({card.periodName})</span>
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Timing: {formatTimings(card.timings) ?? '—'}</p>
             </button>

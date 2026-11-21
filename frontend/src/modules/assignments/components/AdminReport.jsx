@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import RichText from '@/modules/homework/components/RichText'
@@ -10,18 +9,8 @@ const VIEW_TITLE = { teacher: 'Teacher-wise', subject: 'Subject-wise', class: 'C
 // as before (dates + "Available" chips for the days in the chosen range, editable quote, preview,
 // Download JPG, Print) via the shared SheetReportPanel. Built from the assignments, so edits and
 // deletes show up the next time it is opened.
-// Opens on the newest day in the chosen range that has work (assigned date, then due date),
-// so the sheet is not empty on arrival; the date chips still switch to any other day.
-const newestDay = (assignments) => {
-  const latest = [...assignments]
-    .filter((a) => a.assigned_date)
-    .sort((x, y) => y.assigned_date.localeCompare(x.assigned_date) || y.due_date.localeCompare(x.due_date))[0]
-  return latest ? { date: latest.assigned_date, dueDate: latest.due_date } : null
-}
-
+// The report opens on today if it has work, else the newest assigned date (SheetReportPanel).
 export default function AdminReport({ campusId, group, view, onBack }) {
-  const startAt = useMemo(() => newestDay(group.assignments), [group.assignments])
-
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -43,7 +32,6 @@ export default function AdminReport({ campusId, group, view, onBack }) {
         <SheetReportPanel
           active
           onClose={onBack}
-          startAt={startAt}
           campusId={campusId}
           label={group.label}
           view={view}

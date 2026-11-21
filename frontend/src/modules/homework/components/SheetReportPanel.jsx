@@ -1,40 +1,42 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Printer, Shuffle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, Download, Printer, Shuffle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { toLocalDateString, parseLocalDate } from '@/lib/dateUtils'
-import { getNextWorkingDay, nonWorkingReason } from '@/lib/workingDays'
+import { toLocalDateString } from '@/lib/dateUtils'
 import { DEFAULT_QUOTE, pickRandomQuote } from '../constants/quotes'
 import { downloadNodeAsJpg, safeFileName } from '../utils/exportJpg'
 import { useSheetBranding } from '../hooks/useSheetBranding'
 import HomeworkSheet from './HomeworkSheet'
 import PrintPortal from './PrintPortal'
 
-const MAX_CHIPS = 8
+// The day the report opens on: today if today has work, otherwise the newest assigned date.
+const openingDay = (assignments) => {
+  const today = toLocalDateString()
+  if (assignments.some((a) => a.assigned_date === today)) return today
+  return assignments.reduce((max, a) => (a.assigned_date && a.assigned_date > (max ?? '') ? a.assigned_date : max), null) ?? today
+}
 
-const fmtChip = (d) =>
-  parseLocalDate(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-
-// The report body: dates, available chips, quote, preview, warnings, Download / Print and the
-// hidden print copy. Moved unchanged out of SheetReportDialog so it can also sit inline on a page.
+// The report body: dates, quote, preview, warnings, Download / Print and the hidden print copy.
+// Moved out of SheetReportDialog so it can also sit inline on a page.
+// Date and Due date work like the page's View: the sheet shows the work ASSIGNED from Date to
+// Due date (inclusive). Both open on the same day (see openingDay).
 //   active:   true while it is on screen (was the dialog's `open`).
 //   onClose:  the Close button.
 //   Footer:   the element that wraps the buttons (DialogFooter in the dialog).
 const PlainFooter = ({ children }) => <div className="flex flex-wrap justify-end gap-2">{children}</div>
 
 export default function SheetReportPanel({
-  active = true, onClose, Footer = PlainFooter, startAt = null, campusId, label, view, assignments = [], loading = false, error = null, editableQuote = false,
+  active = true, onClose, Footer = PlainFooter, campusId, label, view, assignments = [], loading = false, error = null, editableQuote = false,
 }) {
   const FooterTag = Footer
   const sheetRef = useRef(null)
-  // startAt: optional { date, dueDate } to open on instead of today / next working day.
-  const [date, setDate]       = useState(() => startAt?.date ?? toLocalDateString())
-  const [dueDate, setDueDate] = useState(() => startAt?.dueDate ?? getNextWorkingDay())
+  const [date, setDate]       = useState(() => toLocalDateString())
+  const [dueDate, setDueDate] = useState(() => toLocalDateString())
+  const [datesSet, setDatesSet] = useState(false) // opening day chosen for this showing
   const [quote, setQuote]     = useState(DEFAULT_QUOTE)
   const [fit, setFit]         = useState({ scale: 1, overflow: false })
   const [exporting, setExporting]     = useState(false)
@@ -43,41 +45,41 @@ export default function SheetReportPanel({
   const branding = useSheetBranding(campusId, active)
 
   useEffect(() => {
-    if (!active) return
-    const today = toLocalDateString()
-    setDate(startAt?.date ?? today)
-    setDueDate(startAt?.dueDate ?? getNextWorkingDay(today))
+    if (!active) { setDatesSet(false); return }
     setQuote(DEFAULT_QUOTE)
     setExportError(null)
-  }, [active, startAt?.date, startAt?.dueDate])
+  }, [active])
 
-  const handleDateChange = (value) => {
-    setDate(value)
-    if (value) setDueDate(getNextWorkingDay(value))
-  }
+  // Once the assignments are in, open both dates on the same day that has work.
+  useEffect(() => {
+    if (!active || loading || datesSet) return
+    const day = openingDay(assignments)
+    setDate(day)
+    setDueDate(day)
+    setDatesSet(true)
+  }, [active, loading, datesSet, assignments])
 
   const handleFit = useCallback((info) => {
     setFit((prev) => (prev.scale === info.scale && prev.overflow === info.overflow ? prev : info))
   }, [])
 
-  const combos = useMemo(() => {
-    const seen = new Map()
-    for (const a of assignments) {
-      if (!a.assigned_date) continue
-      const key = `${a.assigned_date}|${a.due_date}`
-      if (!seen.has(key)) seen.set(key, { assigned: a.assigned_date, due: a.due_date })
-    }
-    return [...seen.values()]
-      .sort((x, y) => y.assigned.localeCompare(x.assigned) || y.due.localeCompare(x.due))
-      .slice(0, MAX_CHIPS)
-  }, [assignments])
-
+  // Work ASSIGNED from Date to Due date, inclusive (an empty end is open).
   const forPeriod = useMemo(
-    () => assignments.filter((a) => a.assigned_date === date && a.due_date === dueDate),
+    () => assignments.filter((a) =>
+      a.assigned_date && (!date || a.assigned_date >= date) && (!dueDate || a.assigned_date <= dueDate)),
     [assignments, date, dueDate]
   )
+  const reversed = Boolean(date && dueDate && dueDate < date)
 
-  const dueReason = nonWorkingReason(dueDate)
+  // Previous / next day that has work: before the Date, or after the Due date. Both dates jump to it.
+  const workDays = useMemo(
+    () => [...new Set(assignments.map((a) => a.assigned_date).filter(Boolean))].sort(),
+    [assignments]
+  )
+  const prevDay = date ? [...workDays].reverse().find((d) => d < date) ?? null : null
+  const nextDay = (dueDate || date) ? workDays.find((d) => d > (dueDate || date)) ?? null : null
+  const goToDay = (day) => { setDate(day); setDueDate(day) }
+
   const canPrint = !loading && !error && forPeriod.length > 0
 
   const sheetProps = {
@@ -107,45 +109,38 @@ export default function SheetReportPanel({
 
   return (
     <>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="report-date">Date</Label>
-              <Input id="report-date" type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} className="w-44" />
+          {/* ‹ Assigned Date  Due Date › stay on one row; on a phone the dates shrink to fit. */}
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 sm:w-auto sm:grid-cols-[auto_11rem_11rem_auto] sm:gap-3">
+              <Button
+                type="button" variant="outline" size="icon" className="size-8"
+                onClick={() => goToDay(prevDay)} disabled={loading || !prevDay}
+                aria-label="Previous day with work" title="Previous day with work"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <div className="grid min-w-0 gap-1.5">
+                <Label htmlFor="report-date">Assigned Date</Label>
+                <Input id="report-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full min-w-0" />
+              </div>
+              <div className="grid min-w-0 gap-1.5">
+                <Label htmlFor="report-due">Due Date</Label>
+                <Input id="report-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full min-w-0" />
+              </div>
+              <Button
+                type="button" variant="outline" size="icon" className="size-8"
+                onClick={() => goToDay(nextDay)} disabled={loading || !nextDay}
+                aria-label="Next day with work" title="Next day with work"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="report-due">Due date</Label>
-              <Input id="report-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-44" />
-            </div>
-            <p className="pb-2 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground sm:pb-1.5">
               {loading ? 'Loading…' : `${forPeriod.length} assignment${forPeriod.length !== 1 ? 's' : ''}`}
             </p>
           </div>
-          {dueReason && (
-            <p className="-mt-2 text-xs text-amber-600 dark:text-amber-400">The due date falls on {dueReason}.</p>
-          )}
-
-          {!loading && combos.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">Available:</span>
-              {combos.map((c) => {
-                const selected = c.assigned === date && c.due === dueDate
-                return (
-                  <button
-                    key={`${c.assigned}|${c.due}`}
-                    type="button"
-                    onClick={() => { setDate(c.assigned); setDueDate(c.due) }}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs transition-colors',
-                      selected
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground',
-                    )}
-                  >
-                    Given {fmtChip(c.assigned)}, due {fmtChip(c.due)}
-                  </button>
-                )
-              })}
-            </div>
+          {reversed && (
+            <p className="-mt-2 text-xs text-amber-600 dark:text-amber-400">The Due Date is before the Assigned Date, so nothing matches.</p>
           )}
 
           {editableQuote && (
@@ -176,11 +171,9 @@ export default function SheetReportPanel({
               <Skeleton className="mx-auto h-96 w-full max-w-[210mm] rounded-lg" />
             ) : forPeriod.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 py-16 text-center">
-                <p className="text-sm font-medium text-foreground">No assignments given on this date and due on this due date</p>
+                <p className="text-sm font-medium text-foreground">No assignments given in these dates</p>
                 <p className="text-xs text-muted-foreground">
-                  {assignments.length === 0
-                    ? 'Nothing has been posted yet.'
-                    : 'Pick one of the available combinations above, or change the dates.'}
+                  {assignments.length === 0 ? 'Nothing has been posted yet.' : 'Change the dates, or use ‹ › to jump to a day with work.'}
                 </p>
               </div>
             ) : (

@@ -64,7 +64,8 @@ const buildSubjectLine = (entry) => {
 // "Mr." (this campus's staff list is all-male). Names already shown as
 // initials elsewhere are left as-is.
 const withTitle = (fullName, gender) => {
-  if (!fullName) return fullName
+  // Staff names now arrive from the server with their title ("Mr." / "Miss"): keep it as is.
+  if (!fullName || /^(mr|mrs|ms|miss)\.?\s/i.test(fullName)) return fullName
 
   if (gender === 'male') return `Mr. ${fullName}`
   if (gender === 'female') return `Miss. ${fullName}`
