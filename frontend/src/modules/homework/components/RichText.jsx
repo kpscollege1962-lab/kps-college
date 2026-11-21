@@ -4,6 +4,13 @@ import { URDU_FONT } from '../constants/fonts'
 const ARABIC = '\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF'
 const URDU_RUN = new RegExp(`([${ARABIC}]+(?:[\\s\\u200c\\u200d]+[${ARABIC}]+)*)`)
 const LEADING_ORDINAL = /^(\d+)(st|nd|rd|th)(?=\s|$)/
+// Name titles stay "Mr." / "Miss" even where the text is shown in CAPITALS (CSS uppercase).
+const NAME_TITLE = /(\b(?:Mr\.|Mrs\.|Ms\.|Miss)(?=\s))/
+
+const withNameTitles = (text) =>
+  text.split(NAME_TITLE).map((piece, j) =>
+    j % 2 === 1 ? <span key={j} className="normal-case">{piece}</span> : <Fragment key={j}>{piece}</Fragment>
+  )
 
 export default function RichText({ text, ordinal = false }) {
   const value = String(text ?? '')
@@ -18,7 +25,7 @@ export default function RichText({ text, ordinal = false }) {
         if (!part) return null
         return i % 2 === 1
           ? <span key={i} style={{ fontFamily: URDU_FONT, lineHeight: 2.1 }}>{part}</span>
-          : <Fragment key={i}>{part}</Fragment>
+          : <Fragment key={i}>{withNameTitles(part)}</Fragment>
       })}
     </>
   )

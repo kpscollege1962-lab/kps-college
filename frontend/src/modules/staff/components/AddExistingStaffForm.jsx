@@ -74,12 +74,7 @@ export default function AddExistingStaffForm({
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-0.5">
                   <p className="text-sm font-semibold">
-                    {selectedStaff.gender === 'male'
-                      ? 'Mr. '
-                      : selectedStaff.gender === 'female'
-                      ? 'Miss. '
-                      : ''}
-                    {selectedStaff.full_name}
+                    {selectedStaff.full_name /* already titled by the server */}
                   </p>
                   <p className="text-xs text-muted-foreground font-mono">
                     {selectedStaff.cnic}

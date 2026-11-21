@@ -23,6 +23,11 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(80),
       allowNull: false,
     },
+    gender: {
+      type: DataTypes.ENUM('male', 'female'),
+      allowNull: true,
+      comment: 'Gives the name its Mr. / Miss title; filled from relationship (Father, Mother...) when empty',
+    },
     email: {
       type: DataTypes.STRING(150),
       allowNull: true,

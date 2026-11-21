@@ -89,7 +89,7 @@ export default function StudentLayout() {
         </Link>
         <div>
           <h1 className="text-xl font-bold">
-           {student?.gender === 'male' ? 'Mr.' : 'Miss.'} {student.full_name}
+           {student.full_name /* already titled by the server */}
           </h1>
           <p className="text-xs text-muted-foreground">GR No: {student.gr_no}</p>
         </div>

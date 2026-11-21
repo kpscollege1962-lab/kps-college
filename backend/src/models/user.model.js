@@ -15,6 +15,11 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(80),
       allowNull: false,
     },
+    gender: {
+      type: DataTypes.ENUM('male', 'female'),
+      allowNull: true,
+      comment: 'Copied from the linked staff / student / guardian; gives the name its Mr. / Miss title',
+    },
     username: {
       type: DataTypes.STRING(50),
       allowNull: false,

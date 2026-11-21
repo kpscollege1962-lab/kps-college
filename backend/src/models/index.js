@@ -1,4 +1,9 @@
 const { sequelize } = require('../config/database');
+const { installPersonTitles } = require('../utils/personTitle');
+
+// Every person's name reads "Mr. NAME" / "Miss NAME" by gender, for every model with a `gender`
+// column, now and in future. Must run before any model is defined. See utils/personTitle.js.
+installPersonTitles(sequelize);
 
 // ── Model factories ───────────────────────────────────────────────────────────
 const defineUser               = require('./user.model');
@@ -119,24 +124,5 @@ const db = {
 
 // ── Wire up associations (runs after all models are loaded) ───────────────────
 require('./associations/index')(db);
-
-// ── Staff names carry a courtesy title by gender (see utils/personTitle.js) ──────
-// The title needs `gender`, so wherever a query picks Staff attributes that include full_name
-// but not gender (the main query or any include, at any depth), gender is added automatically.
-const addGenderForStaffNames = (attributes) => {
-  if (Array.isArray(attributes) && attributes.includes('full_name') && !attributes.includes('gender')) {
-    attributes.push('gender');
-  }
-};
-const walkIncludes = (includes = []) => {
-  for (const inc of includes) {
-    if (inc?.model === Staff) addGenderForStaffNames(inc.attributes);
-    if (inc?.include) walkIncludes(inc.include);
-  }
-};
-sequelize.addHook('beforeFindAfterExpandIncludeAll', 'staffNameTitle', function staffNameTitle(options) {
-  if (this === Staff) addGenderForStaffNames(options.attributes);
-  walkIncludes(options.include);
-});
 
 module.exports = db;

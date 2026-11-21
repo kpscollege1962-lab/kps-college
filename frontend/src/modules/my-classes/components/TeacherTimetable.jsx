@@ -1,18 +1,55 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import RichText from '@/modules/homework/components/RichText'
 import { formatTimings } from '../utils/formatTiming'
 
+// Remembered per browser: the timetable starts closed unless the teacher left it open.
+const OPEN_KEY = 'myClasses.timetableOpen'
+const readOpen = () => {
+  try { return localStorage.getItem(OPEN_KEY) === '1' } catch { return false }
+}
+const saveOpen = (open) => {
+  try { localStorage.setItem(OPEN_KEY, open ? '1' : '0') } catch { /* storage blocked: just don't remember */ }
+}
+
 export default function TeacherTimetable({ cards, loading, error }) {
   const navigate = useNavigate()
+  const [open, setOpen] = useState(readOpen)
+
+  const toggle = () => setOpen((o) => { saveOpen(!o); return !o })
+
+  // Closed: one line, e.g. "5 periods · first at 7:45 AM".
+  const firstAt = cards.length ? formatTimings(cards[0].timings)?.split(' to ')[0] : null
+  const summary = loading
+    ? 'Loading…'
+    : `${cards.length} period${cards.length === 1 ? '' : 's'}${firstAt ? ` · first at ${firstAt}` : ''}`
 
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
-      <div>
-        <h2 className="text-lg font-semibold">Timetable</h2>
-        <p className="text-xs text-muted-foreground">Click a class to see its students.</p>
-      </div>
+    <section className={cn('rounded-2xl border border-border bg-card p-4', open && 'space-y-3')}>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls="teacher-timetable"
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Timetable</h2>
+          <p className="text-xs text-muted-foreground">
+            {open ? 'Click a class to see its students.' : summary}
+          </p>
+        </div>
+        <span className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+          {open ? 'Hide' : 'Show'}
+          <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
+        </span>
+      </button>
+
+      <div id="teacher-timetable" hidden={!open} className="space-y-3">
 
       {loading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -51,6 +88,7 @@ export default function TeacherTimetable({ cards, loading, error }) {
           ))}
         </div>
       )}
+      </div>
     </section>
   )
 }

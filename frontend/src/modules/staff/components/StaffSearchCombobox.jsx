@@ -136,12 +136,7 @@ export default function StaffSearchCombobox({ campusId, value, onChange, disable
                       >
                         <div className="flex flex-col gap-0.5">
                           <p className="text-sm font-medium">
-                            {member.gender === 'male'
-                              ? 'Mr. '
-                              : member.gender === 'female'
-                              ? 'Miss. '
-                              : ''}
-                            {member.full_name}
+                            {member.full_name /* already titled by the server */}
                           </p>
                           <p className="text-xs text-muted-foreground font-mono">
                             {member.cnic}

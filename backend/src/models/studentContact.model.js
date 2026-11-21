@@ -12,6 +12,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Name of the person who can be reached at this number',
     },
+    gender: {
+      type: DataTypes.ENUM('male', 'female'),
+      allowNull: true,
+      comment: 'Gives the name its Mr. / Miss title; filled from the label (Father, Mother...) when empty',
+    },
     student_id: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,

@@ -1,7 +1,6 @@
 import { Link } from 'react-router'
 import { formatDate, formatDateNumeric } from '@/lib/dateUtils'
 
-const honorific = (gender) => gender === 'female' ? 'Miss.' : 'Mr.'
 
 export function getStudentColumns({ page, limit }) {
   return [
@@ -29,13 +28,13 @@ export function getStudentColumns({ page, limit }) {
       header: 'Name',
       accessorKey: 'full_name',
       cell: ({ row }) => {
-        const { id, full_name, gender } = row.original
+        const { id, full_name } = row.original // already "Mr. NAME" / "Miss NAME" from the server
         return (
           <Link
             to={`/portal/students/${id}`}
             className="font-medium hover:underline"
           >
-            {honorific(gender)} {full_name}
+            {full_name}
           </Link>
         )
       },

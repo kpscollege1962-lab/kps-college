@@ -23,6 +23,8 @@ module.exports = (sequelize) => {
     full_name: {
       type: DataTypes.STRING(160),
       allowNull: false,
+      // Reads "Mr. NAME" / "Miss NAME" automatically (utils/personTitle: model has `gender`).
+      // Plain stored value: student.getDataValue('full_name'). father_name always reads "Mr. ...".
     },
     date_of_birth: {
       type: DataTypes.DATEONLY,

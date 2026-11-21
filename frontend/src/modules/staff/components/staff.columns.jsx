@@ -20,14 +20,13 @@ export function getStaffColumns({ page, limit }) {
       header: 'Name',
       accessorKey: 'full_name',
       cell: ({ row }) => {
-        const { full_name, gender } = row.original
-        const title = gender === 'male' ? 'Mr. ' : gender === 'female' ? 'Miss. ' : ''
+        const { full_name } = row.original // already "Mr. NAME" / "Miss NAME" from the server
         return (
           <Link
             to={`/portal/staff/${row.original.id}`}
             className="font-medium hover:underline"
           >
-            {title}{full_name}
+            {full_name}
           </Link>
         )
       },

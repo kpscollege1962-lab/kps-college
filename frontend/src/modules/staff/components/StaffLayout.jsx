@@ -85,7 +85,7 @@ export default function StaffLayout() {
         </Link>
         <div>
           <h1 className="text-xl font-bold">
-            {staff.gender === 'male' ? 'Mr. ' : staff.gender === 'female' ? 'Miss. ' : ''}{staff.full_name}
+            {staff.full_name /* already titled by the server */}
           </h1>
           <p className="text-xs text-muted-foreground">
             {staff.postings?.[0]?.employee_no

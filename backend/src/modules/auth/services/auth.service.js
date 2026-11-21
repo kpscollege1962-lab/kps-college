@@ -44,10 +44,12 @@ const provisionStudent = async (student, dob) => {
   });
   if (!enrollment) throw new ApiError(403, 'You are not actively enrolled in the current session');
 
-  const { firstName, lastName } = splitFullName(student.full_name);
+  // The plain stored name (full_name reads as "Mr. NAME" / "Miss NAME").
+  const { firstName, lastName } = splitFullName(student.getDataValue('full_name'));
   const newUser = await createUser({
     first_name: firstName,
     last_name: lastName,
+    gender: student.gender,
     username: student.gr_no,
     email: null,
     password: dob,
@@ -81,6 +83,7 @@ const provisionTeacher = async (staff, dob) => {
   const newUser = await createUser({
     first_name: firstName,
     last_name: lastName,
+    gender: staff.gender,
     username: staff.cnic,
     email: staff.email || null,
     password: dob,

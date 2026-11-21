@@ -21,8 +21,10 @@ export default function UserMenu() {
   }
 
   const fullName = user ? `${user.first_name} ${user.last_name}` : 'User'
+  // Initials skip the name title: "Mr. ABNE AMIN" -> "AA"
+  const plainFirst = String(user?.first_name ?? '').replace(/^(mr|mrs|ms|miss)\.?\s+/i, '')
   const initials = user
-    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
+    ? `${plainFirst[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || 'U'
     : 'U'
 
   return (

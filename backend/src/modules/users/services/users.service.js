@@ -69,12 +69,13 @@ const getUserByIdentifier = async (login) => {
 
 // ── Create ─────────────────────────────────────────────────────────────────────
 
-const createUser = async ({ first_name, last_name, username, email, phone, password, profile_photo }) => {
+const createUser = async ({ first_name, last_name, gender, username, email, phone, password, profile_photo }) => {
   const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
   const user = await User.create({
     first_name,
     last_name,
+    ...(gender ? { gender } : {}), // gives the name its Mr. / Miss title
     username,
     email,
     password_hash,
