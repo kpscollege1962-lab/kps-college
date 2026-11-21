@@ -34,9 +34,10 @@ Existing rows are not changed (all stay live).
    ```
    node src/scripts/addHomeworkSoftDelete.js --apply
    ```
-   It first writes a `mysqldump` of `homeworks` and `homework_submissions` (attachments are
-   columns on `homeworks`) to `backend/backups/` (git-ignored). Credentials come from
-   `backend/.env`; the password is passed via the `MYSQL_PWD` environment variable only.
+   It first writes a FULL `mysqldump` of the database to `backend/backups/` (git-ignored).
+   Credentials come from `backend/.env`; the password is passed via the `MYSQL_PWD`
+   environment variable only. `mysqldump` is found on PATH or in the usual Windows folders
+   (MySQL, MariaDB, XAMPP, WAMP, Laragon); otherwise set `MYSQLDUMP_PATH` in `backend/.env`.
    If the backup fails, nothing is changed.
 5. Start the backend version whose `Homework` model is `paranoid: true`.
 6. Run `npm test` in `backend/`: both permission tests should pass (the ownership test is

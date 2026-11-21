@@ -12,11 +12,12 @@
  *
  * Existing rows are not changed: every one stays live (deleted_at NULL) with no editor recorded.
  *
- * Backup (with --apply only, BEFORE anything changes): mysqldump of `homeworks` (attachments are
- * columns on it) and `homework_submissions` into backend/backups/ (git-ignored). The DB credentials
- * come from backend/.env; the password is passed to mysqldump through the MYSQL_PWD environment
- * variable, never on the command line or into a file. If the backup fails, nothing is changed.
- * Take a full database dump yourself as well before running --apply.
+ * Backup (with --apply only, BEFORE anything changes): a full mysqldump of the database (so it
+ * includes `homeworks`, whose attachments are columns, and `homework_submissions`) into
+ * backend/backups/ (git-ignored). The DB credentials come from backend/.env; the password is passed
+ * to mysqldump through the MYSQL_PWD environment variable, never on the command line or into a file.
+ * mysqldump is taken from PATH, else from the usual Windows install folders (MySQL, MariaDB, XAMPP,
+ * WAMP, Laragon), else from MYSQLDUMP_PATH in .env. If the backup fails, nothing is changed.
  *
  * IMPORTANT: run this BEFORE starting the backend version whose Homework model is `paranoid`;
  * that model reads deleted_at in every homework query.
@@ -31,7 +32,6 @@ const { sequelize } = require('../models');
 
 const APPLY = process.argv.includes('--apply');
 const TABLE = 'homeworks';
-const BACKUP_TABLES = ['homeworks', 'homework_submissions'];
 const BACKUP_DIR = path.join(__dirname, '../../backups');
 
 const COLUMNS = [
@@ -52,20 +52,56 @@ const names = async (query) => {
   return new Set(rows.map((r) => r.name));
 };
 
+// mysqldump on PATH, or in a usual Windows install folder, or MYSQLDUMP_PATH from .env.
+const findMysqldump = () => {
+  if (process.env.MYSQLDUMP_PATH) return process.env.MYSQLDUMP_PATH;
+  const onPath = spawnSync('mysqldump', ['--version'], { encoding: 'utf8' });
+  if (!onPath.error && onPath.status === 0) return 'mysqldump';
+  if (process.platform !== 'win32') return null;
+
+  const exe = 'mysqldump.exe';
+  const binsUnder = (root) => {
+    try {
+      return fs.readdirSync(root).map((d) => path.join(root, d, 'bin'));
+    } catch { return []; }
+  };
+  const programFiles = [process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter(Boolean);
+  const candidates = [
+    ...programFiles.flatMap((pf) => binsUnder(path.join(pf, 'MySQL'))),
+    ...programFiles.flatMap((pf) => {
+      try { return fs.readdirSync(pf).filter((d) => /^MariaDB/i.test(d)).map((d) => path.join(pf, d, 'bin')); }
+      catch { return []; }
+    }),
+    'C:\\xampp\\mysql\\bin',
+    ...binsUnder('C:\\wamp64\\bin\\mysql'),
+    ...binsUnder('C:\\wamp\\bin\\mysql'),
+    ...binsUnder('C:\\laragon\\bin\\mysql'),
+  ];
+  const hit = candidates.map((dir) => path.join(dir, exe)).find((f) => fs.existsSync(f));
+  return hit ?? null;
+};
+
 const backup = () => {
   const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD } = process.env;
   if (!DB_NAME || !DB_USER) throw new Error('DB_NAME / DB_USER are not set in backend/.env');
 
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const file = path.join(BACKUP_DIR, `homework-before-soft-delete-${stamp}.sql`);
+  const file = path.join(BACKUP_DIR, `${DB_NAME}-full-before-homework-soft-delete-${stamp}.sql`);
+
+  const mysqldump = findMysqldump();
+  if (!mysqldump) {
+    throw new Error(
+      'mysqldump was not found. Add MYSQLDUMP_PATH=<full path to mysqldump.exe> to backend/.env and run again.'
+    );
+  }
 
   const args = [
     `--host=${DB_HOST || 'localhost'}`, `--port=${DB_PORT || 3306}`, `--user=${DB_USER}`,
-    '--single-transaction', '--no-tablespaces', `--result-file=${file}`,
-    DB_NAME, ...BACKUP_TABLES,
+    '--single-transaction', '--routines', '--triggers', '--no-tablespaces', `--result-file=${file}`,
+    DB_NAME,
   ];
-  const result = spawnSync('mysqldump', args, {
+  const result = spawnSync(mysqldump, args, {
     env: { ...process.env, MYSQL_PWD: DB_PASSWORD ?? '' },
     encoding: 'utf8',
   });
@@ -119,7 +155,7 @@ const main = async () => {
 
   console.log(`Would run on ${TABLE}:`);
   for (const s of steps) console.log(`  ALTER TABLE \`${TABLE}\` ${s.sql};`);
-  console.log(`\nBackup first: mysqldump of ${BACKUP_TABLES.join(', ')} into ${path.relative(process.cwd(), BACKUP_DIR) || BACKUP_DIR}/`);
+  console.log(`\nBackup first: full mysqldump of the database into ${path.relative(process.cwd(), BACKUP_DIR) || BACKUP_DIR}/`);
 
   if (!APPLY) {
     console.log('\nDry run only. Run again with --apply to back up and make these changes.');
@@ -138,8 +174,12 @@ const main = async () => {
   await sequelize.close();
 };
 
-main().catch(async (err) => {
-  console.error(`\nStopped: ${err.message}\nNothing after this point was changed.`);
-  await sequelize.close().catch(() => {});
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(async (err) => {
+    console.error(`\nStopped: ${err.message}\nNothing after this point was changed.`);
+    await sequelize.close().catch(() => {});
+    process.exit(1);
+  });
+}
+
+module.exports = { findMysqldump, backup };
