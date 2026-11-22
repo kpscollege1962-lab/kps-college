@@ -93,3 +93,16 @@ test("teacher gets 403 editing or deleting another teacher's assignment", async 
   assert.equal(await call('PATCH', path, { description: 'not mine' }), 403);
   assert.equal(await call('DELETE', path), 403);
 });
+
+test('teacher gets 403 on the rota endpoints (assign / issue / view)', async () => {
+  const c = `/campuses/${teacher.campusId}/rota`;
+  const cases = [
+    ['GET',    `${c}?date=2099-01-05`],
+    ['PUT',    `${c}/2099-01-05`, { status: 'draft', absentStaffIds: [], entries: [] }],
+    ['DELETE', `${c}/2099-01-05`],
+  ];
+  for (const [method, path, body] of cases) {
+    assert.equal(await call(method, path, body), 403, `${method} ${path}`);
+  }
+});
+

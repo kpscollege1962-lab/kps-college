@@ -19,6 +19,8 @@ import NotFoundPage from '@/app/pages/NotFoundPage'
 import AbilityProvider from '@/casl/AbilityProvider'
 import { feeRoutes } from '@/modules/fees/routes/index'
 import MyFeesPage from '@/modules/fees/pages/MyFeesPage'
+import MyProfilePage from '@/modules/account/pages/MyProfilePage'
+import AccountSettingsPage from '@/modules/account/pages/AccountSettingsPage'
 import { myClassesRoutes } from '@/modules/my-classes/routes/myClasses.routes'
 import { assignmentRoutes } from '@/modules/assignments/routes/assignments.routes'
 import ComingSoonPage from '@/shells/portal/pages/ComingSoonPage'
@@ -56,6 +58,8 @@ export const portalShellRoutes = {
             { path: 'fees',                 children: feeRoutes },
             { path: 'fees',                 children: feeRoutes },
             { path: 'my-fees',              element: <MyFeesPage /> },
+            { path: 'profile',              element: <MyProfilePage /> },       // top-right menu → My Profile
+            { path: 'account',              element: <AccountSettingsPage /> }, // sidebar → Settings
             { path: 'my-classes', children: myClassesRoutes },
             { path: 'assignments', children: assignmentRoutes },
             { path: 'soon/:featureId', element: <ComingSoonPage /> },

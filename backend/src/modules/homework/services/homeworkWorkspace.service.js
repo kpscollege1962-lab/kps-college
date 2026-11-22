@@ -5,6 +5,7 @@ const {
 const ApiError = require('../../../utils/ApiError');
 const { getMyStaffRecord } = require('../../teacher/utils/myStaff');
 const { subjectsForTeacher } = require('../../teacher/utils/slotSubjects');
+const { issuedCoverFor, issuedCoveredFrom } = require('../../rota/services/rotaEffects.service');
 
 const TYPE_LABEL = { classwork: 'Classwork', homework: 'Homework' };
 
@@ -102,17 +103,51 @@ const createHomeworkBatch = async ({
     ],
   });
 
+  // What this teacher may post for on the assigned date: their timetable, adjusted by that
+  // day's ISSUED rota. A class + subject they are absent for (every period of it covered) is
+  // taken away for the day; a class + subject they cover for an absent teacher is added.
   const taught = new Map();
+  const periodsOf = new Map(); // key -> how many of their periods teach it
   for (const slot of slots) {
     for (const subject of subjectsForTeacher(slot, staff.id)) {
-      taught.set(`${slot.class_group_id}-${slot.section_id}-${subject.id}`, {
+      const key = `${slot.class_group_id}-${slot.section_id}-${subject.id}`;
+      taught.set(key, {
         className:   slot.classGroup.name,
         sectionName: slot.section?.name ?? null,
         subjectName: subject.name,
       });
+      periodsOf.set(key, (periodsOf.get(key) ?? 0) + 1);
     }
   }
+
+  const [covered, cover] = await Promise.all([
+    issuedCoveredFrom({ staffId: staff.id, date: day(assignedDate), campusId }),
+    issuedCoverFor({ staffId: staff.id, date: day(assignedDate), campusId }),
+  ]);
+  const coveredCount = new Map();
+  for (const { entry, subjects } of covered) {
+    for (const subject of subjects) {
+      const key = `${entry.class_group_id}-${entry.section_id}-${subject.id}`;
+      coveredCount.set(key, (coveredCount.get(key) ?? 0) + 1);
+    }
+  }
+  const awayFor = new Set([...coveredCount].filter(([key, n]) => n >= (periodsOf.get(key) ?? 0)).map(([key]) => key));
+  for (const key of awayFor) taught.delete(key);
+  for (const { entry, subjects } of cover) {
+    if (entry.classGroup?.session_id !== sessionId) continue;
+    for (const subject of subjects) {
+      taught.set(`${entry.class_group_id}-${entry.section_id}-${subject.id}`, {
+        className:   entry.classGroup.name,
+        sectionName: entry.section?.name ?? null,
+        subjectName: subject.name,
+      });
+    }
+  }
+
   for (const key of unique.keys()) {
+    if (awayFor.has(key) && !taught.has(key)) {
+      throw new ApiError(403, 'You are marked absent on the rota for that day: the teacher covering this class posts its work');
+    }
     if (!taught.has(key)) {
       throw new ApiError(403, 'You can only post assignments for the classes and subjects you teach');
     }

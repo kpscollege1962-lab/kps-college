@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog'
-import { Maximize2, Minimize2, ArrowLeftRight } from 'lucide-react'
+import { Maximize2, Minimize2, ArrowLeftRight, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,6 +23,12 @@ import StaffPanel from '../components/StaffPanel'
 import AddPeriodDialog from '../components/AddPeriodDialog'
 import PeriodBreaksDialog from '../components/PeriodBreaksDialog'
 import DragOverlayContent from '../components/DragOverlayContent'
+import { useCampusPrintBranding } from '../hooks/useCampusPrintBranding'
+import { toLocalDateString } from '@/lib/dateUtils'
+import PrintPortal from '@/modules/homework/components/PrintPortal'
+import { useRota } from '@/modules/rota/hooks/useRota'
+import RotaPanel from '@/modules/rota/components/RotaPanel'
+import RotaSheet from '@/modules/rota/components/RotaSheet'
 
 export default function TimetablePage() {
   const { activeRole } = useRoleContext()
@@ -33,6 +39,24 @@ export default function TimetablePage() {
 
   const ability = useAbility(AbilityContext)
   const canManage = ability.can('manage', 'Timetable')
+  // Rota (daily arrangement for absent teachers): admins assign / issue it, the Principal views it.
+  const canReadRota = ability.can('read', 'Rota')
+  const canManageRota = ability.can('manage', 'Rota')
+  const [rotaOpen, setRotaOpen] = useState(false)
+  const [rotaDate, setRotaDate] = useState(() => toLocalDateString())
+  const [printingRota, setPrintingRota] = useState(false)
+  const rotaState = useRota(campusId, rotaDate, canReadRota)
+  const rota = rotaState.rota?.date === rotaDate ? rotaState.rota : null
+  const branding = useCampusPrintBranding(campusId)
+
+  // Print the rota sheet: mount it in the print portal, print, then unmount.
+  useEffect(() => {
+    if (!printingRota) return
+    const done = () => setPrintingRota(false)
+    window.addEventListener('afterprint', done, { once: true })
+    const id = setTimeout(() => window.print(), 50)
+    return () => { clearTimeout(id); window.removeEventListener('afterprint', done) }
+  }, [printingRota])
 
   const {
     periods, rows, loading, error,
@@ -296,6 +320,7 @@ export default function TimetablePage() {
     if (!dragData) return
 
     const period = periods.find((p) => p.id === periodId)
+    if (!period || period.is_assembly) return // assembly is not a teaching period
     const existingSlot = period?.slots?.find(
       (s) => s.class_group_id === classGroupId && s.section_id === sectionId,
     )
@@ -368,6 +393,32 @@ export default function TimetablePage() {
           canManage={canManage}
         />
 
+        {rotaOpen && canManageRota && (
+          <RotaPanel
+            date={rotaDate}
+            onDateChange={setRotaDate}
+            rota={rota}
+            loading={rotaState.rota?.date !== rotaDate && !rotaState.error}
+            saving={rotaState.saving}
+            onSave={rotaState.save}
+            onDelete={rotaState.remove}
+            onPrint={() => setPrintingRota(true)}
+            onClose={() => setRotaOpen(false)}
+            periods={periods}
+            rows={rows}
+            staffList={staffList}
+          />
+        )}
+
+        {printingRota && rota && (
+          <PrintPortal>
+            <RotaSheet
+              rota={rota} periods={periods} rows={rows} staffList={staffList}
+              titleUrl={branding.titleUrl} footerText={branding.footerText}
+            />
+          </PrintPortal>
+        )}
+
         {loading && periods.length === 0 ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -385,6 +436,18 @@ export default function TimetablePage() {
           >
             {/* Toolbar row */}
             <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-border shrink-0">
+              {canManageRota && (
+                <Button
+                  variant={rotaOpen ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => { setRotaOpen((v) => !v); if (isExpanded) setIsExpanded(false) }}
+                  title="Assign Rota: give absent teachers' periods to other teachers for one day"
+                  className={cn('h-7 gap-1.5 px-2 text-xs', rotaOpen ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-muted-foreground')}
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Assign Rota
+                </Button>
+              )}
               {canManage && (
                 <Button
                   variant={swapMode ? 'default' : 'ghost'}
@@ -445,6 +508,7 @@ export default function TimetablePage() {
                   onOpenBreaks={handleOpenBreaks}
                   saving={saving}
                   canManage={canManage}
+                  rota={rota}
                 />
               </div>
 

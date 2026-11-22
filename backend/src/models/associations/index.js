@@ -7,6 +7,7 @@ const timetableAssociations  = require('./timetable.associations');
 const attendanceAssociations = require('./attendance.associations');
 const feesAssociations       = require('./fees.associations');
 const homeworkAssociations = require('./homework.associations');
+const rotaAssociations     = require('./rota.associations');
 
 module.exports = (db) => {
   authAssociations(db);
@@ -18,4 +19,5 @@ module.exports = (db) => {
   attendanceAssociations(db);
   feesAssociations(db);
   homeworkAssociations(db);
+  rotaAssociations(db);
 };

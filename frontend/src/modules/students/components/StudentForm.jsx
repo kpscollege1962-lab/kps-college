@@ -9,6 +9,7 @@ import PersonalTab from './tabs/PersonalTab'
 import ContactsTab from './tabs/ContactsTab'
 import EnrollmentTab from './tabs/EnrollmentTab'
 import { Separator } from '@/components/ui/separator'
+import { stripNameTitle } from '@/lib/personName'
 
 export default function StudentForm({ initialData = null, onSubmit, onCancel, saving = false, error = null, fieldErrors = {} }) {
   const [formError, setFormError] = useState(null)
@@ -19,7 +20,7 @@ export default function StudentForm({ initialData = null, onSubmit, onCancel, sa
     admission_date: initialData?.admission_date ?? '',
 
     // Personal tab
-    full_name: initialData?.full_name?.toUpperCase() ?? '',
+    full_name: stripNameTitle(initialData?.full_name)?.toUpperCase() ?? '',
     gender: initialData?.gender ?? '',
     date_of_birth: initialData?.date_of_birth ?? '',
     b_form_no: initialData?.b_form_no ? formatCnic(initialData.b_form_no) : '',
@@ -27,7 +28,7 @@ export default function StudentForm({ initialData = null, onSubmit, onCancel, sa
     religion: initialData?.religion?.toUpperCase() ?? '',
     nationality: initialData?.nationality?.toUpperCase() ?? '',
     domicile_district: initialData?.domicile_district?.toUpperCase() ?? '',
-    father_name: initialData?.father_name?.toUpperCase() ?? '',
+    father_name: stripNameTitle(initialData?.father_name)?.toUpperCase() ?? '',
     father_cnic: initialData?.father_cnic ? formatCnic(initialData.father_cnic) : '',
     father_occupation: initialData?.father_occupation?.toUpperCase() ?? '',
     address: initialData?.address?.toUpperCase() ?? '',
@@ -38,7 +39,7 @@ export default function StudentForm({ initialData = null, onSubmit, onCancel, sa
     // Contacts tab
     contacts: initialData?.contacts?.length
       ? initialData.contacts.map(c => ({
-        name: c.name ?? '',
+        name: stripNameTitle(c.name) ?? '',
         label: c.label,
         phone: c.phone,
         is_primary: c.is_primary,

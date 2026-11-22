@@ -16,12 +16,17 @@ export const buildCards = (entries) =>
       classLabel: classLabelText(e.className, e.sectionName),
       subjectText: e.subjects.map((s) => s.name).join(' / ') || e.label || '',
       timings: e.timings,
+      rotaFor: e.rotaFor ?? null,     // today's rota: this teacher takes it for an absent teacher
+      coveredBy: e.coveredBy ?? null, // today's rota: this teacher is absent, someone else takes it
     }))
     .sort((a, b) => a.periodNumber - b.periodNumber || a.level - b.level || cmpText(a.sectionName, b.sectionName))
     
+// What the teacher can post for today: their periods, minus the ones covered by someone else on
+// today's rota (absent), plus the rota periods they take today. (The server checks the same.)
 export const buildTargets = (entries) => {
   const byKey = new Map()
   for (const e of entries) {
+    if (e.coveredBy) continue
     for (const s of e.subjects) {
       const key = `${e.classGroupId}-${e.sectionId}-${s.id}`
       if (!byKey.has(key)) {

@@ -24,9 +24,11 @@ export default function TeacherTimetable({ cards, loading, error }) {
 
   // Closed: one line, e.g. "5 periods · first at 7:45 AM".
   const firstAt = cards.length ? formatTimings(cards[0].timings)?.split(' to ')[0] : null
+  const own = cards.filter((c) => !c.rotaFor)
+  const rotaToday = cards.length - own.length
   const summary = loading
     ? 'Loading…'
-    : `${cards.length} period${cards.length === 1 ? '' : 's'}${firstAt ? ` · first at ${firstAt}` : ''}`
+    : `${own.length} period${own.length === 1 ? '' : 's'}${firstAt ? ` · first at ${firstAt}` : ''}${rotaToday ? ` · ${rotaToday} rota today` : ''}`
 
   return (
     <section className={cn('rounded-2xl border border-border bg-card p-4', open && 'space-y-3')}>
@@ -74,8 +76,22 @@ export default function TeacherTimetable({ cards, loading, error }) {
               key={card.key}
               type="button"
               onClick={() => navigate(`/portal/my-classes/${card.classGroupId}/${card.sectionId}`)}
-              className="rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/40"
+              className={cn(
+                'rounded-xl border bg-background px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/40',
+                card.rotaFor ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/30' : 'border-border',
+                card.coveredBy && 'opacity-60',
+              )}
             >
+              {card.rotaFor && (
+                <p className="mb-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  Rota today · for {card.rotaFor.staffName ?? 'an absent teacher'}
+                </p>
+              )}
+              {card.coveredBy && (
+                <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                  {card.coveredBy.staffName ? `Covered today by ${card.coveredBy.staffName}` : 'You are on leave for this period today'}
+                </p>
+              )}
               <p className="text-sm font-semibold">
                 <RichText text={card.classLabel} ordinal />
                 {card.subjectText && (

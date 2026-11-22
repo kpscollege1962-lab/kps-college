@@ -4,6 +4,7 @@ const {
   AttendanceSession, AttendanceRecord, Enrollment, Student, User,
 } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
+const { issuedCoverFor, coversFirstPeriodOf } = require('../../rota/services/rotaEffects.service');
 
 // ── Internal helper ─────────────────────────────────────────────────────────────
 
@@ -20,6 +21,17 @@ const resolveStaffId = async (userId) => {
 const isUnrestricted = (ability, action, subjectType) => (
   ability.possibleRulesFor(action, subjectType).some((rule) => !rule.inverted && !rule.conditions)
 );
+
+// The class teacher marks a section's register; on a day with an ISSUED rota, so does the teacher
+// who covers that section's first teaching period (Period 1) that day.
+const assertMayMark = async ({ campusIdInt, sectionId, staffId, date }) => {
+  const assignment = await ClassTeacherAssignment.findOne({
+    where: { campus_id: campusIdInt, section_id: sectionId, staff_id: staffId },
+  });
+  if (assignment) return;
+  if (date && await coversFirstPeriodOf({ staffId, sectionId, date: String(date).slice(0, 10) })) return;
+  throw new ApiError(403, 'You are not assigned as class teacher for this section');
+};
 
 // Attaches per-section attendance stats for a given date to a base row list.
 // Module-private — the stats query pattern is specific to this landing-page shape.
@@ -153,6 +165,26 @@ const getMySections = async ({ ability, userId, campusId, sessionId, date }) => 
       sessionId: assignment.section.classGroup.session.id,
       sessionName: assignment.section.classGroup.session.name,
     }));
+
+    // Rota: sections whose Period 1 this teacher covers on that date (issued rota only).
+    if (date) {
+      const day = String(date).slice(0, 10);
+      const session = await AcademicSession.findByPk(academicSessionId);
+      for (const { entry } of await issuedCoverFor({ staffId, date: day, campusId: campusIdInt })) {
+        if (entry.classGroup?.session_id !== academicSessionId) continue;
+        if (baseRows.some((r) => r.sectionId === entry.section_id)) continue;
+        if (!(await coversFirstPeriodOf({ staffId, sectionId: entry.section_id, date: day }))) continue;
+        baseRows.push({
+          sectionId: entry.section_id,
+          sectionName: entry.section?.name ?? null,
+          classGroupId: entry.class_group_id,
+          className: entry.classGroup.name,
+          sessionId: academicSessionId,
+          sessionName: session?.name ?? null,
+          rotaToday: true,
+        });
+      }
+    }
   }
 
   return attachAttendanceStats(baseRows, { campusIdInt, academicSessionId, date });
@@ -178,10 +210,7 @@ const getOrCreateSession = async ({ ability, userId, campusId, sectionId, classG
 
   if (!unrestricted) {
     const staffId = await resolveStaffId(userId);
-    const assignment = await ClassTeacherAssignment.findOne({
-      where: { campus_id: campusIdInt, section_id: resolvedSectionId, staff_id: staffId },
-    });
-    if (!assignment) throw new ApiError(403, 'You are not assigned as class teacher for this section');
+    await assertMayMark({ campusIdInt, sectionId: resolvedSectionId, staffId, date });
   }
 
   const section = await Section.findOne({
@@ -260,10 +289,7 @@ const saveRecords = async ({ ability, userId, campusId, attendanceSessionId, rec
 
   if (!isUnrestricted(ability, 'update', 'Attendance')) {
     const staffId = await resolveStaffId(userId);
-    const assignment = await ClassTeacherAssignment.findOne({
-      where: { campus_id: campusIdInt, section_id: attendanceSession.section_id, staff_id: staffId },
-    });
-    if (!assignment) throw new ApiError(403, 'You are not assigned as class teacher for this section');
+    await assertMayMark({ campusIdInt, sectionId: attendanceSession.section_id, staffId, date: attendanceSession.date });
   }
 
   const enrolledStudentIds = (await Enrollment.findAll({
@@ -302,10 +328,7 @@ const submitSession = async ({ ability, userId, campusId, attendanceSessionId })
 
   if (!isUnrestricted(ability, 'submit', 'Attendance')) {
     const staffId = await resolveStaffId(userId);
-    const assignment = await ClassTeacherAssignment.findOne({
-      where: { campus_id: campusIdInt, section_id: attendanceSession.section_id, staff_id: staffId },
-    });
-    if (!assignment) throw new ApiError(403, 'You are not assigned as class teacher for this section');
+    await assertMayMark({ campusIdInt, sectionId: attendanceSession.section_id, staffId, date: attendanceSession.date });
   }
 
   const academicSession = await AcademicSession.findByPk(attendanceSession.session_id);

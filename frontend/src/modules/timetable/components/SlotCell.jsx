@@ -14,10 +14,13 @@ export default function SlotCell({
   swapMode, isSwapSelected, onSlotClickInSwapMode,
   onUpsert, onClear, saving, canManage,
 }) {
+  // Assembly is not a teaching period: its cells are locked (no click, drop or swap).
+  const isAssembly = Boolean(period.is_assembly)
   const droppableId = `slot-${period.id}-${classGroupId}-${sectionId}`
   const { ref, isDropTarget } = useDroppable({
     id: droppableId,
     data: { periodId: period.id, classGroupId, sectionId },
+    disabled: isAssembly,
   })
 
   const [popoverOpen, setPopoverOpen] = useState(false)
@@ -76,9 +79,7 @@ export default function SlotCell({
         </>
       )}
     </div>
-  ) : (
-    <span className="text-muted-foreground italic select-none">—</span>
-  )
+  ) : null // empty slot: no dash, the cell is simply blank
 
   // ── Break strip sizing ──────────────────────────────────────────────────────
   const fdTiming    = period.timings?.find((t) => t.config === 'full_day')
@@ -90,6 +91,8 @@ export default function SlotCell({
   const breakPosition = (rawPosition === 'before' || rawPosition === 'after') && hasBreak
     ? rawPosition
     : null
+  // A period with a break where this class has no side yet: flag it (set it in Manage breaks).
+  const missingBreak = hasBreak && !breakPosition && !isAssembly
 
 
 
@@ -123,6 +126,14 @@ export default function SlotCell({
   //
   // Base UI injects FocusGuard <span> siblings next to the trigger element. Here those
   // spans land inside <td> alongside normal content — valid HTML, no phantom columns.
+  if (isAssembly) {
+    return (
+      <td className="border border-border min-w-[80px] bg-muted/60 text-center align-middle">
+        <span className="select-none text-[10px] uppercase tracking-wide text-muted-foreground/60">Assembly</span>
+      </td>
+    )
+  }
+
   return (
     <td
       ref={ref}
@@ -208,6 +219,14 @@ export default function SlotCell({
         <>
           <div className={cn('p-1.5 relative', !hasContent && 'min-h-[56px]')}>
             {contentNode}
+            {missingBreak && (
+              <span
+                className="absolute bottom-0.5 left-1 text-[9px] font-medium text-destructive"
+                title="This class has no break side in this period. Set it in Manage breaks (the cup icon)."
+              >
+                No break set
+              </span>
+            )}
             {dropHint && !swapMode && (
               <div className="absolute bottom-0 inset-x-0 bg-primary/90 text-primary-foreground text-[9px] text-center py-0.5 leading-tight z-20">
                 {dropHint}

@@ -12,6 +12,9 @@ export default function StaffPersonalCard({ staff }) {
         <div className="col-span-2 sm:col-span-3">
           <Field label="Full Name" value={staff.full_name} />
         </div>
+        <div className="col-span-2 sm:col-span-3">
+          <Field label="Father Name" value={staff.father_name} />
+        </div>
         <Field label="Initials"        value={staff.name_initials} />
         <Field label="Gender"         value={staff.gender ? (staff.gender === 'male' ? 'Male' : 'Female') : null} />
         <Field label="Marital Status" value={staff.marital_status ? staff.marital_status.charAt(0).toUpperCase() + staff.marital_status.slice(1) : null} />

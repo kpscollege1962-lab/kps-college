@@ -196,7 +196,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
-                <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
+                <span className="text-[10px] text-foreground font-semibold">Full Day</span>
               </th>
               {teachingPeriods.map((period) => {
                 const fdTiming = period.timings?.find((t) => t.config === 'full_day')
@@ -238,8 +238,8 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                 return (
                   <th key={period.id} className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
                     <div className="flex items-center justify-between">
-                      <span>{formatDuration(fdTiming)}</span>
-                      <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
+                      <span className="font-semibold text-foreground">{formatDuration(fdTiming)}</span>
+                      <span className="text-muted-foreground">{formatDuration(hdTiming)}</span>
                     </div>
                   </th>
                 )
@@ -316,9 +316,7 @@ export default function ClassWisePreview({ periods, rows, printRef, titleUrl, wa
                           </p>
                         ))}
                       </div>
-                    ) : (
-                      <span className="text-foreground italic select-none">—</span>
-                    )
+                    ) : null // empty slot: left blank
 
                     return (
                       <td key={period.id} className="border border-border align-top text-center relative">

@@ -222,7 +222,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                 style={{ left: SERIAL_COL_WIDTH + NAME_COL_WIDTH, width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH }}
                 className="sticky z-20 bg-muted border border-border px-1.5 py-1 text-left"
               >
-                <span className="text-[10px] text-muted-foreground font-medium">Full Day</span>
+                <span className="text-[10px] text-foreground font-semibold">Full Day</span>
               </th>
               {columns.map((col) => {
                 const fdTiming = col.timings?.find((t) => t.config === 'full_day')
@@ -264,8 +264,8 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                 return (
                   <th className="border border-border px-1.5 py-0.5 text-center text-[10px] text-muted-foreground font-normal">
                     <div className="flex items-center justify-between">
-                      <span>{formatDuration(fdTiming)}</span>
-                      <span className="text-muted-foreground/60">{formatDuration(hdTiming)}</span>
+                      <span className="font-semibold text-foreground">{formatDuration(fdTiming)}</span>
+                      <span className="text-muted-foreground">{formatDuration(hdTiming)}</span>
                     </div>
                   </th>
                 )
@@ -333,9 +333,7 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
 
                   if (entries.length === 0) {
                     return (
-                      <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs">
-                        <span className="text-foreground italic select-none">—</span>
-                      </td>
+                      <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs" />
                     )
                   }
 

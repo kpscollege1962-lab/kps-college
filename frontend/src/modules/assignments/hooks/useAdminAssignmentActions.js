@@ -57,8 +57,17 @@ export const useAdminAssignmentActions = (campusId) => {
   }), [campusId, run])
 
   const deleteOne = useCallback((record) => run(() => adminDeleteAssignmentService(campusId, record.id)), [campusId, run])
+
+  // A whole box: its classwork and homework (soft delete; each can be restored).
+  const deleteBox = useCallback((box) => run(async () => {
+    for (const r of [...box.records.classwork, ...box.records.homework]) {
+      const result = await adminDeleteAssignmentService(campusId, r.id)
+      if (!result.success) return result
+    }
+    return { success: true }
+  }), [campusId, run])
   const restore   = useCallback((record) => run(() => adminRestoreAssignmentService(campusId, record.id)), [campusId, run])
   const purge     = useCallback((record) => run(() => adminPurgeAssignmentService(campusId, record.id)), [campusId, run])
 
-  return { saving, saveBox, deleteOne, restore, purge }
+  return { saving, saveBox, deleteOne, deleteBox, restore, purge }
 }

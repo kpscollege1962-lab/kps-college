@@ -25,6 +25,11 @@ module.exports = (sequelize) => {
       // Reads "Mr. NAME" / "Miss NAME" automatically (utils/personTitle: model has `gender`).
       // Plain stored value: staff.getDataValue('full_name').
     },
+    father_name: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      comment: 'Reads "Mr. <name>" everywhere (utils/personTitle). Added by scripts/addStaffFatherName.js',
+    },
     name_initials: {
       type: DataTypes.STRING(20),
       allowNull: true,

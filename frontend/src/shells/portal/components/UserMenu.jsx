@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { LogOut, User, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/modules/auth/hooks/useAuth'
+import { useRefreshSignedInUser } from '@/modules/account/hooks/useRefreshSignedInUser'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import {
 export default function UserMenu() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  useRefreshSignedInUser(user?.id) // current name (with Mr./Miss), photo, email from the server
 
   const handleLogout = async () => {
     await logout()
@@ -31,9 +33,13 @@ export default function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors outline-none">
         {/* Avatar */}
-        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
-          {initials}
-        </div>
+        {user?.profile_photo ? (
+          <img src={user.profile_photo} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+            {initials}
+          </div>
+        )}
         <span className="hidden sm:block text-sm font-medium text-foreground max-w-32 truncate">
           {fullName}
         </span>
@@ -52,7 +58,7 @@ export default function UserMenu() {
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/portal/profile')}>
             <User className="w-4 h-4 mr-2" />
             My Profile
           </DropdownMenuItem>

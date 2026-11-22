@@ -457,7 +457,7 @@ export default function AssignmentsPage() {
                   onToggle={() => toggle(group.key)}
                   onReport={() => openReport(group)}
                   onEdit={canEdit ? (record) => setEditBox(boxOf(record)) : undefined}
-                  onDelete={canDelete ? setDeleteTarget : undefined}
+                  onDelete={canDelete ? (record) => setDeleteTarget(boxOf(record)) : undefined}
                 />
               ))}
             </div>
@@ -486,9 +486,9 @@ export default function AssignmentsPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
         title="Delete assignment"
-        description="It disappears from every list and proforma, for teachers too. You can restore it from Recently deleted."
+        description="Its classwork and homework disappear from every list and proforma, for teachers too. You can restore them from Recently deleted."
         onConfirm={async () => {
-          const result = await actions.deleteOne(deleteTarget)
+          const result = await actions.deleteBox(deleteTarget)
           if (result.success) {
             toast.success('Assignment deleted')
             afterChange()

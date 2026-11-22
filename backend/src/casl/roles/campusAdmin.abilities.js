@@ -2,6 +2,7 @@ module.exports = (can, _cannot) => {
   can('manage', 'CampusSettings');
   can('manage', 'Staff');
   can('manage', 'Timetable');
+  can('manage', 'Rota');      // assign / issue the daily rota (arrangement for absent teachers)
   can('manage', 'ClassGroup');
   can('manage', 'ClassTeacherAssignment');
   can('manage', 'Attendance');

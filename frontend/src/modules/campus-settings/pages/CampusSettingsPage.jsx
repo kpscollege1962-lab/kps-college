@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { RefreshCw } from 'lucide-react'
+import { useAbility } from '@casl/react'
+import { AbilityContext } from '@/casl/AbilityProvider'
+import { cn } from '@/lib/utils'
+import CampusesPage from '@/modules/campuses/pages/CampusesPage'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -8,7 +13,7 @@ import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useCampusSettings } from '../hooks/useCampusSettings'
 import CampusSettingsForm from '../components/CampusSettingsForm'
 
-export default function CampusSettingsPage() {
+function CampusSettingsBody() {
   const { activeRole } = useRoleContext()
 
   const { settings, loading, error, saving, saveError, fetchSettings, updateSettings } =
@@ -100,6 +105,48 @@ export default function CampusSettingsPage() {
         </div>
       )}
 
+    </div>
+  )
+}
+
+// Settings → Campus settings.
+//   Who can manage campuses (Super Admin): two tabs, "Campuses" (the campus list: add / edit)
+//   and "<Working campus> settings". The tab is in the URL (?tab=campuses).
+//   Everyone else (Campus Admin): just their campus's settings, as before.
+export default function CampusSettingsPage() {
+  const ability = useAbility(AbilityContext)
+  const { activeRole } = useRoleContext()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const canManageCampuses = ability.can('update', 'Campus')
+
+  if (!canManageCampuses) return <CampusSettingsBody />
+
+  const tab = searchParams.get('tab') === 'campuses' ? 'campuses' : 'settings'
+  const tabs = [
+    { value: 'campuses', label: 'Campuses' },
+    { value: 'settings', label: activeRole?.campusName ? `${activeRole.campusName} settings` : 'Campus settings' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div className="inline-flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1">
+        {tabs.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => setSearchParams(t.value === 'campuses' ? { tab: 'campuses' } : {})}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm transition-colors',
+              tab === t.value
+                ? 'bg-background text-foreground font-medium shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === 'campuses' ? <CampusesPage /> : <CampusSettingsBody key={activeRole?.campusId} />}
     </div>
   )
 }

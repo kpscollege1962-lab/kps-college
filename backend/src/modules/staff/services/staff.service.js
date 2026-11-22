@@ -97,7 +97,7 @@ const getStaffById = async (campusId, staffId) => {
 
 const createStaff = async (campusId, data) => {
   const {
-    cnic, gender, full_name, name_initials, marital_status,
+    cnic, gender, full_name, father_name, name_initials, marital_status,
     address, email, date_of_birth,
     employee_no, joining_date, isTimetableEligible, allowConcurrentPeriods,
     phones         = [],
@@ -127,6 +127,7 @@ const createStaff = async (campusId, data) => {
       cnic,
       gender,
       full_name,
+      father_name:    father_name    || null,
       name_initials:  name_initials  || null,
       marital_status: marital_status || null,
       address:        address        || null,
@@ -204,6 +205,7 @@ const updateStaff = async (campusId, staffId, data) => {
       ...(data.cnic           !== undefined && { cnic:           data.cnic           }),
       ...(data.gender         !== undefined && { gender:         data.gender         }),
       ...(data.full_name      !== undefined && { full_name:      data.full_name      }),
+      ...(data.father_name    !== undefined && { father_name:    data.father_name || null }),
       ...(data.name_initials  !== undefined && { name_initials:  data.name_initials  }),
       ...(data.marital_status !== undefined && { marital_status: data.marital_status }),
       ...(data.address        !== undefined && { address:        data.address        }),

@@ -44,6 +44,10 @@ const createRules = [
     .trim()
     .notEmpty().withMessage('Full name is required')
     .isLength({ max: 150 }).withMessage('Full name must not exceed 150 characters'),
+  body('father_name')
+    .optional({ values: 'null' })
+    .trim()
+    .isLength({ max: 150 }).withMessage('Father name must not exceed 150 characters'),
   body('name_initials')
     .optional()
     .trim()
@@ -119,6 +123,10 @@ const updateRules = [
     .trim()
     .notEmpty().withMessage('Full name must not be empty')
     .isLength({ max: 150 }).withMessage('Full name must not exceed 150 characters'),
+  body('father_name')
+    .optional({ values: 'null' })
+    .trim()
+    .isLength({ max: 150 }).withMessage('Father name must not exceed 150 characters'),
   body('name_initials')
     .optional()
     .trim()

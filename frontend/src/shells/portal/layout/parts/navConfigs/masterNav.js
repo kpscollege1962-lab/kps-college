@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Building2, GraduationCap, Landmark, ClipboardCheck, User, Settings,
+  LayoutDashboard, GraduationCap, Landmark, ClipboardCheck, User, Settings,
 } from 'lucide-react'
 import ROLES from '@/constants/roles'
 
@@ -25,8 +25,10 @@ const {
  *           { SUPER_ADMIN: '/portal/settings', CAMPUS_ADMIN: '/portal/campus-settings' }
  *   noHighlight    roles for which this entry opens a page another entry already shows,
  *                  so it is not highlighted a second time
+ *   hideFor roles that do NOT see it, even though it has no `roles` list
  *   collapseWhenSingle   (group) when a role is left with a single entry in the group, show
  *                  just that entry instead of a one-item group
+ *   keepTitleWhenSingle  (group, with collapseWhenSingle) the single entry keeps the GROUP's title
  *   opens   (group) id of the entry that opens by itself when the group is clicked open
  *
  * An entry with no real page for a role opens "yet to be implemented".
@@ -36,7 +38,6 @@ export const SOON_PREFIX = '/portal/soon'
 
 export const MASTER_NAV = [
   { id: 'home', title: 'Home', icon: LayoutDashboard, page: '/portal' },
-  { id: 'campuses', title: 'Campuses', icon: Building2, page: '/portal/campuses', roles: [SUPER_ADMIN] },
 
   {
     type: 'group', id: 'academics', title: 'Academics', icon: GraduationCap,
@@ -50,20 +51,20 @@ export const MASTER_NAV = [
           { id: 'class-teachers', title: 'Class teachers', page: '/portal/class-teacher-assignments', roles: [SUPER_ADMIN, CAMPUS_ADMIN] },
           { id: 'enrollments', title: 'Enrollments', page: '/portal/enrollments', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
           { id: 'subjects', title: 'Subjects', page: '/portal/subjects', roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
-          // Teachers see their own timetable at the top of Manage classes.
+          // Teachers have their timetable inside Classes (Manage classes), so no entry for them.
           { id: 'timetable', title: 'Timetable',
-            pages: { [SUPER_ADMIN]: '/portal/timetable', [CAMPUS_ADMIN]: '/portal/timetable', [STUDENT]: '/portal/timetable', [TEACHER]: '/portal/my-classes' },
-            noHighlight: [TEACHER] },
-          // Teachers post homework and classwork inside My classes, so theirs opens the same page.
+            // Principal: read-only, including the day's rota rows.
+            pages: { [SUPER_ADMIN]: '/portal/timetable', [CAMPUS_ADMIN]: '/portal/timetable', [PRINCIPAL]: '/portal/timetable', [STUDENT]: '/portal/timetable' },
+            hideFor: [TEACHER] },
+          // Teachers post homework and classwork inside Classes (Manage classes): no entry for them.
           // Admins and the principal get the Assignments page (view, proformas; admins also edit,
           // delete, restore). Campus roles and Super Admin land on their own / Working campus.
           { id: 'homework', title: 'Homework',
             pages: {
               [SUPER_ADMIN]: '/portal/assignments', [SCHOOL_ADMIN]: '/portal/assignments',
               [CAMPUS_ADMIN]: '/portal/assignments', [PRINCIPAL]: '/portal/assignments',
-              [TEACHER]: '/portal/my-classes',
             },
-            noHighlight: [TEACHER] },
+            hideFor: [TEACHER] },
           { id: 'attendance', title: 'Attendance', page: '/portal/attendance',
             live: [SUPER_ADMIN, CAMPUS_ADMIN, TEACHER, STUDENT] },
           { id: 'notebook-checking', title: 'Notebooks checking' },
@@ -128,7 +129,8 @@ export const MASTER_NAV = [
   },
 
   {
-    // Everyone has "My profile". Looking at other people's profiles is for the roles that manage them.
+    // Looking at other people's profiles is for the roles that manage them. Everyone's OWN profile
+    // is "My Profile" in the top-right menu; their account settings are under Settings.
     type: 'group', id: 'profile', title: 'Profile', icon: User, collapseWhenSingle: true,
     items: [
       { id: 'students-profile', title: "Students' profile", page: '/portal/students',
@@ -138,17 +140,21 @@ export const MASTER_NAV = [
         live: [SUPER_ADMIN, CAMPUS_ADMIN],
         roles: [SUPER_ADMIN, SCHOOL_ADMIN, CAMPUS_ADMIN, PRINCIPAL] },
       { id: 'users-profile', title: "Users' profile", roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
-      { id: 'my-profile', title: 'My profile' },
     ],
   },
 
   { type: 'divider', id: 'settings-divider' },
 
   {
+    // Everyone: their own account settings (photo, email, phone, password). Admins also have the
+    // school / campus settings; for everyone else the group is just one entry called "Settings".
     type: 'group', id: 'settings', title: 'Settings', icon: Settings,
+    collapseWhenSingle: true, keepTitleWhenSingle: true,
     items: [
+      { id: 'account-settings', title: 'Account settings', page: '/portal/account' },
       { id: 'school-settings', title: 'School settings', pages: { [SUPER_ADMIN]: '/portal/settings' },
         roles: [SUPER_ADMIN, SCHOOL_ADMIN] },
+      // Super Admin: also the campus list (add / edit campuses) as a "Campuses" tab on this page.
       { id: 'campus-settings', title: 'Campus settings',
         pages: { [SUPER_ADMIN]: '/portal/campus-settings', [CAMPUS_ADMIN]: '/portal/campus-settings' },
         roles: [SUPER_ADMIN, SCHOOL_ADMIN, CAMPUS_ADMIN] },
@@ -157,7 +163,8 @@ export const MASTER_NAV = [
   },
 ]
 
-const visibleTo = (entry, roleName) => !entry.roles || entry.roles.includes(roleName)
+const visibleTo = (entry, roleName) =>
+  (!entry.roles || entry.roles.includes(roleName)) && !entry.hideFor?.includes(roleName)
 
 const pageFor = (entry, roleName) => {
   if (entry.pages) return entry.pages[roleName] ?? null
@@ -191,7 +198,7 @@ const resolveEntries = (entries, roleName) => {
       const items = resolveEntries(entry.items, roleName)
       if (!items.length) continue // empty groups are dropped
       if (entry.collapseWhenSingle && items.length === 1 && items[0].type === 'item') {
-        out.push({ ...items[0], icon: entry.icon })
+        out.push({ ...items[0], icon: entry.icon, ...(entry.keepTitleWhenSingle && { title: entry.title }) })
       } else {
         out.push({ type: 'group', id: entry.id, title: entry.title, icon: entry.icon, items, opensPath: pageFor(entry, roleName) })
       }

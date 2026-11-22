@@ -8,11 +8,13 @@ import PersonalTab from './tabs/PersonalTab'
 import EmploymentTab from './tabs/EmploymentTab'
 import ContactsTab from './tabs/ContactsTab'
 import QualificationsTab from './tabs/QualificationsTab'
+import { stripNameTitle } from '@/lib/personName'
 
 export default function StaffForm({ initialData = null, onSubmit, onCancel, saving = false, error = null, fieldErrors = {} }) {
   const [form, setForm] = useState({
     // Personal
-    full_name:      initialData?.full_name      ?? '',
+    full_name:      stripNameTitle(initialData?.full_name) ?? '',
+    father_name:    stripNameTitle(initialData?.father_name) ?? '',
     name_initials:  initialData?.name_initials  ?? '',
     gender:         initialData?.gender         ?? '',
     date_of_birth:  initialData?.date_of_birth  ?? '',
@@ -46,7 +48,7 @@ export default function StaffForm({ initialData = null, onSubmit, onCancel, savi
 
   // ── Field handler (uppercase transform) ──────────────────────────────────────
 
-  const UPPERCASE_FIELDS = new Set(['full_name', 'address'])
+  const UPPERCASE_FIELDS = new Set(['full_name', 'father_name', 'address'])
   const CNIC_FIELDS      = new Set(['cnic'])
 
   const handleChange = (e) => {
@@ -115,6 +117,7 @@ export default function StaffForm({ initialData = null, onSubmit, onCancel, savi
       ],
     }
 
+    payload.father_name = form.father_name.trim() || null
     if (form.name_initials.trim()) payload.name_initials = form.name_initials.trim()
     if (form.marital_status)       payload.marital_status = form.marital_status
     if (form.address.trim())  payload.address        = form.address.trim()

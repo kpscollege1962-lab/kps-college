@@ -114,7 +114,7 @@ console.log('Branding:', {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="class">Class-wise</TabsTrigger>
-          <TabsTrigger value="staff">Staff-wise</TabsTrigger>
+          <TabsTrigger value="staff">Teacher-wise</TabsTrigger>
           <TabsTrigger value="subject">Subject-wise</TabsTrigger>
         </TabsList>
 

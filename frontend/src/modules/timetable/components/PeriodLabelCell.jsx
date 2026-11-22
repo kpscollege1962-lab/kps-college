@@ -14,6 +14,8 @@ export default function PeriodLabelCell({ period, onDelete, onOpenBreaks, canMan
         <span className="font-semibold text-xs text-foreground">{displayLabel}</span>
         {canManage && (
           <div className="flex items-center gap-1">
+            {/* No breaks on assembly: it is not a teaching period */}
+            {!period.is_assembly && (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -27,6 +29,7 @@ export default function PeriodLabelCell({ period, onDelete, onOpenBreaks, canMan
               />
               <TooltipContent side="top" className="text-xs">Manage breaks</TooltipContent>
             </Tooltip>
+            )}
             <button
               onClick={() => onDelete(period.id)}
               className="text-muted-foreground/40 hover:text-destructive transition-colors"

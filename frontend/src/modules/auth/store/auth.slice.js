@@ -24,6 +24,10 @@ const authSlice = createSlice({
     
   },
   reducers: {
+    // After the person changes their own photo / email / phone in Settings.
+    updateUser(state, action) {
+      if (state.user) state.user = { ...state.user, ...action.payload }
+    },
     clearAuth(state) {
       state.user = null
       state.contexts = []
@@ -43,5 +47,5 @@ const authPersistConfig = {
 
 export const persistedAuthReducer = persistReducer(authPersistConfig, authSlice.reducer)
 
-export const { clearAuth } = authSlice.actions
+export const { clearAuth, updateUser } = authSlice.actions
 export default authSlice.reducer

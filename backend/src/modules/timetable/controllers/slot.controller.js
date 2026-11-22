@@ -35,13 +35,14 @@ const upsertSlotCtrl = async (req, res) => {
 
 const clearSlotCtrl = async (req, res) => {
   const { campusId, classGroupId, sectionId, periodId } = matchedData(req, { locations: ['params'] });
-  await clearSlot({
+  // slot: the row that remains when the class has a break set (break only), else null
+  const slot = await clearSlot({
     campusId:     parseInt(campusId),
     classGroupId: parseInt(classGroupId),
     sectionId:    parseInt(sectionId),
     periodId:     parseInt(periodId),
   });
-  res.json(ApiResponse.success('Slot cleared'));
+  res.json(ApiResponse.success('Slot cleared', { slot }));
 };
 
 // ── POST /campuses/:campusId/timetable/slots/swap ──────────────────────────────

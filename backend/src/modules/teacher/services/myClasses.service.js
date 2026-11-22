@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const { Staff, TimetableSlot, ClassGroup, Section, Subject, AcademicSession } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
+const { issuedCoverFor } = require('../../rota/services/rotaEffects.service');
+const { localToday } = require('../../rota/utils/localDate');
 
 const getMyStaffRecord = async (userId) => {
   const staff = await Staff.findOne({ where: { user_id: userId } });
@@ -54,6 +56,25 @@ const listMyTeachingClasses = async (userId, campusId) => {
     if (slot.staff_id_2 === staff.id && slot.subject2) entry.subjectsById.set(slot.subject2.id, slot.subject2.name);
   }
 
+  // Today's issued rota: classes this teacher takes for an absent teacher (for today only).
+  for (const { entry, subjects } of await issuedCoverFor({ staffId: staff.id, date: localToday(), campusId })) {
+    if (entry.classGroup?.session_id !== activeSession.id) continue;
+    const key = `${entry.class_group_id}-${entry.section_id}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        classGroupId: entry.class_group_id,
+        className: entry.classGroup.name,
+        level: entry.classGroup.level,
+        academicLevel: entry.classGroup.academic_level,
+        sectionId: entry.section_id,
+        sectionName: entry.section?.name ?? null,
+        subjectsById: new Map(),
+        rotaToday: true,
+      });
+    }
+    for (const s of subjects) byKey.get(key).subjectsById.set(s.id, s.name);
+  }
+
   return [...byKey.values()]
     .map((entry) => ({
       classGroupId: entry.classGroupId,
@@ -62,6 +83,7 @@ const listMyTeachingClasses = async (userId, campusId) => {
       academicLevel: entry.academicLevel,
       sectionId: entry.sectionId,
       sectionName: entry.sectionName,
+      rotaToday: Boolean(entry.rotaToday),
       subjects: [...entry.subjectsById.entries()]
         .map(([id, name]) => ({ id, name }))
         .sort((a, b) => a.name.localeCompare(b.name)),

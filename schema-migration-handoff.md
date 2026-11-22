@@ -75,3 +75,43 @@ Then start the backend.
 
 **Order matters:** the new backend reads `users.gender` on every login, so it must not run
 against a database that has not had this step. Safe to re-run.
+
+## 3. Father name for staff (`staff.father_name`)
+
+**Why:** My Profile shows the father name; students already had one, staff did not.
+
+**Script:** `backend/src/scripts/addStaffFatherName.js` (adds `father_name` VARCHAR(150) NULL after
+`full_name`; existing staff get it empty and the office fills it in from the staff form).
+
+**Steps** (backend stopped, from `backend/`):
+```
+node src/scripts/addStaffFatherName.js            # dry run, changes nothing
+node src/scripts/addStaffFatherName.js --apply    # full backup into backend/backups/, then the change
+```
+**Order matters:** the new backend reads `staff.father_name`, so run this before starting it. Safe to re-run.
+
+## 4. Timetable clean-up (data only, no schema change)
+
+**Why:** assembly is not a teaching period (the app now refuses to fill it); old empty rows may
+sit in assembly periods. Also lists classes that have no break side in a break period.
+
+**Script:** `backend/src/scripts/fixTimetableSlots.js`
+```
+node src/scripts/fixTimetableSlots.js            # dry run: what would be deleted + classes missing a break side
+node src/scripts/fixTimetableSlots.js --apply    # full backup, then deletes EMPTY assembly rows only
+```
+Assembly rows that hold something are only listed, never deleted. Classes missing a break side
+are only listed: set them in Timetable -> Manage breaks (cup icon). Safe to re-run.
+
+## 5. Rota tables (`rota_days`, `rota_absences`, `rota_entries`)
+
+**Why:** the daily rota (arrangement for absent teachers) is stored separately from the timetable,
+which is never changed by a rota.
+
+**Script:** `backend/src/scripts/createRotaTables.js` (creates only the missing tables; never alters
+or drops anything).
+```
+node src/scripts/createRotaTables.js            # dry run, changes nothing
+node src/scripts/createRotaTables.js --apply    # full backup, then creates the three tables
+```
+**Order matters:** run it before starting the backend that has the rota. Safe to re-run.

@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { TimetableSlot, Subject, Staff, ClassGroup, Section, StaffPosting } = require('../../../models');
 const ApiError = require('../../../utils/ApiError');
-const { findPeriodOrFail } = require('./period.service');
+const { findPeriodOrFail, assertTeachingPeriod } = require('./period.service');
 
 // ── Shared slot includes (exported — also used by timetable.service read queries) ─
 
@@ -97,7 +97,7 @@ const checkStaffPeriodConflict = async ({ staffId, periodId, campusId, label, ex
 // ── Upsert slot ────────────────────────────────────────────────────────────────
 
 const upsertSlot = async ({ campusId, classGroupId, sectionId, periodId, label, subjectId1, subjectId2, staffId1, staffId2, breakPosition }) => {
-  await findPeriodOrFail({ periodId, campusId });
+  assertTeachingPeriod(await findPeriodOrFail({ periodId, campusId }));
 
   // Resolve the label and staff fields this slot will actually carry after this
   // write — the incoming value if one was given, otherwise whatever the slot
@@ -154,6 +154,10 @@ const upsertSlot = async ({ campusId, classGroupId, sectionId, periodId, label, 
 };
 
 // ── Clear slot ─────────────────────────────────────────────────────────────────
+// Empties the subject / teacher / label. The row also carries WHEN this class takes its break
+// (break_position), which belongs to the class, not to what is taught: if a break is set, the
+// row stays with only the break; otherwise it is deleted.
+// Returns the slot that remains (break only), or null when the row was deleted.
 
 const clearSlot = async ({ campusId, classGroupId, sectionId, periodId }) => {
   await findPeriodOrFail({ periodId, campusId });
@@ -163,8 +167,20 @@ const clearSlot = async ({ campusId, classGroupId, sectionId, periodId }) => {
   });
   if (!slot) throw new ApiError(404, 'Slot not found');
 
+  if (slot.break_position) {
+    await slot.update({ label: null, subject_id_1: null, subject_id_2: null, staff_id_1: null, staff_id_2: null });
+    return slot.reload({ include: slotIncludes });
+  }
   await slot.destroy();
+  return null;
 };
+
+// The slot row at a position, with its subjects and staff (null if there is none).
+const findSlotAt = ({ periodId, classGroupId, sectionId }) =>
+  TimetableSlot.findOne({
+    where: { period_id: periodId, class_group_id: classGroupId, section_id: sectionId },
+    include: slotIncludes,
+  });
 
 // ── Swap slots ─────────────────────────────────────────────────────────────────
 // Swaps content (label, subject_id_1, subject_id_2, staff_id) between two slots,
@@ -180,8 +196,8 @@ const swapSlots = async ({
   slotB, // { periodId, classGroupId, sectionId }
 }) => {
   const { sequelize } = require('../../../models');
-  await findPeriodOrFail({ periodId: slotA.periodId, campusId });
-  await findPeriodOrFail({ periodId: slotB.periodId, campusId });
+  assertTeachingPeriod(await findPeriodOrFail({ periodId: slotA.periodId, campusId }));
+  assertTeachingPeriod(await findPeriodOrFail({ periodId: slotB.periodId, campusId }));
   if (
     slotA.periodId === slotB.periodId &&
     slotA.classGroupId === slotB.classGroupId &&
@@ -281,7 +297,11 @@ const swapSlots = async ({
     // Hard delete any slot that ended up with all-null content.
     // This happens when an empty cell (no row) is one of the swap targets —
     // its null content gets written into the other position, producing an empty row.
-    if (isEmptyContent(contentB)) {
+    // A position that has a break side keeps its row (break only): the break belongs to the
+    // class at that position, not to the content that moved away.
+    const keepA = Boolean(recordA?.break_position);
+    const keepB = Boolean(recordB?.break_position);
+    if (isEmptyContent(contentB) && !keepA) {
       await TimetableSlot.destroy({
         where: {
           period_id:      slotA.periodId,
@@ -291,7 +311,7 @@ const swapSlots = async ({
         transaction: t,
       });
     }
-    if (isEmptyContent(contentA)) {
+    if (isEmptyContent(contentA) && !keepB) {
       await TimetableSlot.destroy({
         where: {
           period_id:      slotB.periodId,
@@ -302,11 +322,11 @@ const swapSlots = async ({
       });
     }
 
-    return { finalA, finalB, contentA, contentB };
+    return { finalA, finalB, contentA, contentB, keepA, keepB };
   });
   const [reloadedA, reloadedB] = await Promise.all([
-    isEmptyContent(result.contentB) ? null : result.finalA.reload({ include: slotIncludes }),
-    isEmptyContent(result.contentA) ? null : result.finalB.reload({ include: slotIncludes }),
+    isEmptyContent(result.contentB) && !result.keepA ? null : findSlotAt(slotA),
+    isEmptyContent(result.contentA) && !result.keepB ? null : findSlotAt(slotB),
   ]);
   return { slotA: reloadedA, slotB: reloadedB };
 };

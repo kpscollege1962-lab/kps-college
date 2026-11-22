@@ -219,15 +219,16 @@ export const useTimetable = () => {
     setSavingSlot(null)
 
     if (result.success) {
+      // The server keeps the row when the class has a break side (only the break remains);
+      // otherwise the row is gone.
+      const remaining = result.data?.slot ?? null
       setPeriods((prev) =>
         prev.map((period) => {
           if (period.id !== periodId) return period
-          return {
-            ...period,
-            slots: (period.slots ?? []).filter(
-              (s) => !(s.class_group_id === classGroupId && s.section_id === sectionId)
-            ),
-          }
+          const others = (period.slots ?? []).filter(
+            (s) => !(s.class_group_id === classGroupId && s.section_id === sectionId)
+          )
+          return { ...period, slots: remaining ? [...others, remaining] : others }
         })
       )
     } else {

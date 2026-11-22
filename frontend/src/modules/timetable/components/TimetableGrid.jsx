@@ -5,6 +5,7 @@ import PeriodLabelCell  from './PeriodLabelCell'
 import PeriodTimingCell from './PeriodTimingCell'
 import PeriodIntervalCell from './PeriodIntervalCell'
 import SlotCell         from './SlotCell'
+import RotaRows         from '@/modules/rota/components/RotaRows'
 
 export default function TimetableGrid({
   periods,
@@ -26,6 +27,7 @@ export default function TimetableGrid({
   onSlotClickInSwapMode,
   saving,
   canManage,
+  rota = null,
 }) {
   const scrollRef = useRef(null)
   useDragScroll(scrollRef)
@@ -156,6 +158,9 @@ export default function TimetableGrid({
               {canManage && <td className="border border-border w-10 min-w-[40px]" />}
             </tr>
           ))}
+
+          {/* The day's rota (absent teachers and who takes their periods), under the classes */}
+          <RotaRows rota={rota} periods={periods} rows={rows} staffList={staffList} trailingCell={canManage} />
 
           {rows.length === 0 && (
             <tr>

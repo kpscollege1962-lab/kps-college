@@ -9,6 +9,15 @@ const findPeriodOrFail = async ({ periodId, campusId }) => {
   return period;
 };
 
+// Assembly has its own period row and is NOT a teaching period: no subject, teacher, label or
+// break can be put in it (from the grid, a swap, or the API directly).
+const assertTeachingPeriod = (period) => {
+  if (period.is_assembly) {
+    throw new ApiError(422, 'Assembly is not a teaching period: nothing can be assigned to it');
+  }
+  return period;
+};
+
 // ── Create period ──────────────────────────────────────────────────────────────
 
 const createPeriod = async ({ campusId, periodNumber, isAssembly = false }) => {
@@ -81,7 +90,7 @@ const updateBreaks = async ({
 }) => {
   const { TimetableSlot } = require('../../../models');
   const { sequelize } = require('../../../models');
-  await findPeriodOrFail({ periodId, campusId });
+  assertTeachingPeriod(await findPeriodOrFail({ periodId, campusId }));
   await sequelize.transaction(async (t) => {
     // 1. Update full_day timing break duration
     const fdTiming = await TimetablePeriodTiming.findOne({
@@ -153,4 +162,4 @@ const deletePeriod = async ({ campusId, periodId }) => {
   await period.destroy();
 };
 
-module.exports = { findPeriodOrFail, createPeriod, batchUpdateTimings, updateBreaks, deletePeriod };
+module.exports = { findPeriodOrFail, assertTeachingPeriod, createPeriod, batchUpdateTimings, updateBreaks, deletePeriod };

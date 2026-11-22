@@ -30,6 +30,21 @@ export default function PersonalTab({ form, setForm, handleChange, fieldErrors, 
       </div>
 
       <div className="space-y-1.5">
+        <Label>Father Name</Label>
+        <Input
+          name="father_name"
+          value={form.father_name}
+          onChange={handleChange}
+          placeholder="e.g. MUHAMMAD KHAN"
+          maxLength={150}
+          disabled={saving}
+        />
+        {fieldErrors.father_name && (
+          <p className="text-xs text-destructive">{fieldErrors.father_name}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
         <Label>Initials</Label>
         <Input
           name="name_initials"

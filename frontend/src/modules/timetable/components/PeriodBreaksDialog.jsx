@@ -40,13 +40,14 @@ function SlotRow({ row, position, onToggle }) {
         'flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm transition-colors text-left',
         position === 'before' && 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
         position === 'after'  && 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-        !position             && 'hover:bg-accent/50 text-muted-foreground',
+        !position             && 'bg-destructive/5 text-destructive hover:bg-destructive/10',
       )}
     >
       <span>
         {row.classGroupName}
         {row.sectionName && ` ${row.sectionName}`}
       </span>
+      {!position && <span className="text-[10px] font-medium">Choose before / after</span>}
       {position && (
         <Badge
           variant="outline"
@@ -90,15 +91,21 @@ export default function PeriodBreaksDialog({ open, period, rows, saving, onSave,
     setPositions(pos)
   }, [open, period, rows])
 
+  // Every class takes its break either before or after the period: clicking switches
+  // (unset -> Before -> After -> Before ...). There is no "no break" for a class.
   const handleToggle = (classGroupId, sectionId) => {
     const key = `${classGroupId}-${sectionId}`
     setPositions((prev) => {
       const cur = prev[key] ?? null
-      return { ...prev, [key]: cur === null ? 'before' : cur === 'before' ? 'after' : null }
+      return { ...prev, [key]: cur === 'before' ? 'after' : 'before' }
     })
   }
 
   const hasAnyBreak = !!fdDuration || !!hdDuration
+  // With a break set, saving needs a side for EVERY class (otherwise a class silently has no break).
+  const unassigned = hasAnyBreak
+    ? rows.filter((row) => !positions[`${row.classGroupId}-${row.sectionId}`])
+    : []
 
   const handleSave = () => {
     const beforeSlots = []
@@ -142,10 +149,9 @@ export default function PeriodBreaksDialog({ open, period, rows, saving, onSave,
             <p className="text-xs font-medium text-muted-foreground">Class Assignment</p>
             {hasAnyBreak && (
               <p className="text-[11px] text-muted-foreground">
-                Click: unassigned →{' '}
-                <span className="text-amber-500 font-medium">Before</span> →{' '}
-                <span className="text-blue-500 font-medium">After</span> →{' '}
-                unassigned
+                Click to switch:{' '}
+                <span className="text-amber-500 font-medium">Before</span> ↔{' '}
+                <span className="text-blue-500 font-medium">After</span>
               </p>
             )}
           </div>
@@ -171,9 +177,16 @@ export default function PeriodBreaksDialog({ open, period, rows, saving, onSave,
           )}
         </div>
 
+        {unassigned.length > 0 && (
+          <p className="text-xs text-destructive">
+            Choose Before or After for {unassigned.map((r) => `${r.classGroupName}${r.sectionName ? ` ${r.sectionName}` : ''}`).join(', ')}.
+            Every class takes its break on one side.
+          </p>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || unassigned.length > 0}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
           </Button>
         </DialogFooter>

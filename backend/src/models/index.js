@@ -42,6 +42,9 @@ const defineFeeChallanItem = require('./feeChallanItem.model');
 const defineFeePayment     = require('./feePayment.model');
 const defineHomework           = require('./homework.model');
 const defineHomeworkSubmission = require('./homeworkSubmission.model');
+const defineRotaDay            = require('./rotaDay.model');
+const defineRotaAbsence        = require('./rotaAbsence.model');
+const defineRotaEntry          = require('./rotaEntry.model');
 
 // ── Initialize models ─────────────────────────────────────────────────────────
 const User               = defineUser(sequelize);
@@ -80,6 +83,9 @@ const FeeChallanItem = defineFeeChallanItem(sequelize);
 const FeePayment     = defineFeePayment(sequelize);
 const Homework           = defineHomework(sequelize);
 const HomeworkSubmission = defineHomeworkSubmission(sequelize);
+const RotaDay            = defineRotaDay(sequelize);
+const RotaAbsence        = defineRotaAbsence(sequelize);
+const RotaEntry          = defineRotaEntry(sequelize);
 
 // ── Register & export ─────────────────────────────────────────────────────────
 const db = {
@@ -120,6 +126,9 @@ const db = {
   FeePayment,
   Homework,
   HomeworkSubmission,
+  RotaDay,
+  RotaAbsence,
+  RotaEntry,
 };
 
 // ── Wire up associations (runs after all models are loaded) ───────────────────
