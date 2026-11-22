@@ -1,4 +1,6 @@
 import PrintHeader from './Printheader.jsx'
+import BreakOverlays from './BreakOverlays'
+import { breakSidesOf, breakPadding } from '../../utils/breakSides'
 import PrintWatermark from './PrintWatermark.jsx'
 import PrintFooter from './PrintFooter.jsx'
 
@@ -379,8 +381,12 @@ export default function SubjectWisePreview({ subjects, periods, printRef, titleU
                     ? entries[0].staff
                     : null
 
+                  // Break strips: one per side these classes take (normally the same side).
+                  const sides = breakSidesOf(entries, hasBreak)
+
                   return (
-                    <td key={col.key} className="border border-border p-1.5 align-top text-center text-xs" style={{ maxWidth: 130 }}>
+                    <td key={col.key} className={`relative border border-border p-1.5 align-top text-center text-xs ${breakPadding(sides, true)}`} style={{ maxWidth: 130 }}>
+                      <BreakOverlays sides={sides} narrow />
                       {sharedTeacher ? (
                         <>
                           <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight text-center">

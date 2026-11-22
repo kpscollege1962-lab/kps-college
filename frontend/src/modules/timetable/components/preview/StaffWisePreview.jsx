@@ -1,4 +1,6 @@
 import PrintHeader from './Printheader.jsx'
+import BreakOverlays from './BreakOverlays'
+import { breakSidesOf, breakPadding } from '../../utils/breakSides'
 import PrintWatermark from './PrintWatermark.jsx'
 import PrintFooter from './PrintFooter.jsx'
 const formatTimeShort = (t) => {
@@ -323,8 +325,13 @@ export default function StaffWisePreview({ staff, periods, printRef, titleUrl, w
                       ? firstDisplay
                       : null
 
+                    // Break strips: one per side these classes take (normally the same side).
+                    const multiFd = col.timings?.find((t) => t.config === 'full_day')
+                    const sides = breakSidesOf(entries, (multiFd?.break_duration ?? 0) > 0)
+
                     return (
-                      <td key={col.key} className="border border-border px-1 py-1.5 align-top text-center text-xs" style={{ maxWidth: 110 }}>
+                      <td key={col.key} className={`relative border border-border px-1 py-1.5 align-top text-center text-xs ${breakPadding(sides)}`} style={{ maxWidth: 110 }}>
+                        <BreakOverlays sides={sides} />
                         {sharedLabel ? (
                           <>
                             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 font-medium text-foreground leading-tight text-center">
