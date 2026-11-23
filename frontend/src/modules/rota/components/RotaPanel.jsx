@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { CalendarClock, ListPlus, Plus, Printer, Sparkles, Trash2, X } from 'lucide-react'
+import { CalendarClock, Plus, Printer, Sparkles, Trash2, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,134 +13,120 @@ import DeleteConfirmDialog from '@/modules/classes/components/DeleteConfirmDialo
 import { toLocalDateString, formatDate } from '@/lib/dateUtils'
 import { nonWorkingReason } from '@/lib/workingDays'
 import RichText from '@/modules/homework/components/RichText'
-import { entryKey, periodsOfTeacher, busyReasons, rotaLoad, suggestFor } from '../utils/rotaPlanner'
+import {
+  entryKey, teachingPeriods, startTime, periodsOfTeacher, busyReasons, rotaLoad, suggestFor,
+} from '../utils/rotaPlanner'
 
-const NONE = 'none'
+const NONE = 'none'        // not covered yet
+const PRESENT = 'present'  // the teacher is in school for this period: no rota for it
 
-// One rota = one PAIR of rows:
-//   row 1  Absent:          [absent teacher v]  [his class: period · class · subject v]
-//   row 2  Takes the class: [substitute v]  (Free teachers first; choosing a Busy one forces it)
-// "+" at the end of the pair adds another pair (pre-filled with the same absent teacher and his
-// next period); "Add all his periods" adds pairs for the rest of his day.
+let blockSeq = 0
+const newBlock = (staffId = null) => ({ id: ++blockSeq, staffId })
 
-let lineSeq = 0
-const newLine = (patch = {}) => ({
-  id: ++lineSeq, absentStaffId: null, slotKey: null, substituteStaffId: null, forceReason: '', ...patch,
-})
-const slotKeyOf = (e) => `${e.periodId}-${e.classGroupId}-${e.sectionId}`
+const entriesOf = (periods, rows, staffId) =>
+  periodsOfTeacher(periods, rows, staffId)
+    .map((p) => ({ ...p, include: true, substituteStaffId: null, forceReason: '' }))
 
-// The pairs, from what the server has (one pair per covered period).
-const linesFrom = (rota) => {
-  const entries = rota?.entries ?? []
-  const lines = entries.map((e) => newLine({
-    absentStaffId: e.absentStaffId,
-    slotKey: slotKeyOf(e),
-    substituteStaffId: e.substituteStaffId,
-    forceReason: e.forceReason ?? '',
-  }))
-  for (const id of rota?.absentStaffIds ?? []) {
-    if (!entries.some((e) => e.absentStaffId === id)) lines.push(newLine({ absentStaffId: id }))
-  }
-  return lines.length ? lines : [newLine()]
+// The editable rota, built from what the server has:
+//   blocks:  one per absent teacher, in order (staffId null = teacher not chosen yet);
+//   entries: one per class of each absent teacher that day; `include` false = the teacher is
+//            present for that period (part-day absence), so it is not on the rota.
+const draftFrom = (rota, periods, rows) => {
+  const ids = rota?.absentStaffIds ?? []
+  const saved = new Map((rota?.entries ?? []).map((e) => [entryKey(e), e]))
+  const entries = ids.flatMap((staffId) =>
+    entriesOf(periods, rows, staffId).map((p) => {
+      const s = saved.get(entryKey(p))
+      return {
+        ...p,
+        include: rota?.status ? Boolean(s) : true,
+        substituteStaffId: s?.substituteStaffId ?? null,
+        forceReason: s?.forceReason ?? '',
+      }
+    }),
+  )
+  return { blocks: ids.length ? ids.map((id) => newBlock(id)) : [newBlock()], entries }
 }
 
+// Assign Rota: the daily arrangement for absent teachers (timetable toolbar). One table, one
+// column per teaching period (P1, P2, ...). Each absent teacher takes two rows:
+//   "Absent teacher":      [teacher v]  then his class + subject under each of his periods;
+//   "Today's replacement": [teacher v]  under each of those classes (who takes it today).
+// The replacement list puts free teachers first; choosing a busy one forces it (recorded).
+// "+" at the end adds another absent teacher, "x" removes one.
 export default function RotaPanel({
   date, onDateChange, rota, loading, saving, onSave, onDelete, onPrint, onClose,
   periods, rows, staffList,
 }) {
-  const ctxKey = `${date}|${rota?.status ?? ''}|${rota?.issuedAt ?? ''}|${(rota?.entries ?? []).length}`
-  const [lines, setLines] = useState(() => linesFrom(rota))
-  const [linesFor, setLinesFor] = useState(ctxKey)
-  if (linesFor !== ctxKey) {
-    setLinesFor(ctxKey)
-    setLines(linesFrom(rota))
+  const ctxKey = `${date}|${rota?.status ?? ''}|${rota?.issuedAt ?? ''}|${(rota?.entries ?? []).length}|${periods.length}`
+  const [draft, setDraft] = useState(() => draftFrom(rota, periods, rows))
+  const [draftFor, setDraftFor] = useState(ctxKey)
+  if (draftFor !== ctxKey) {
+    setDraftFor(ctxKey)
+    setDraft(draftFrom(rota, periods, rows))
   }
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const readOnly = date < toLocalDateString() // a past rota is a record
+  const readOnly = date < toLocalDateString()
+  const locked = readOnly || saving
   const holiday = nonWorkingReason(date)
+  const columns = teachingPeriods(periods)
 
-  // ── what the lines mean ──
-  const optionsFor = (absentId) => (absentId ? periodsOfTeacher(periods, rows, absentId) : [])
-  const slotOf = (line) => optionsFor(line.absentStaffId).find((o) => slotKeyOf(o) === line.slotKey) ?? null
-  const entryOf = (line) => {
-    const slot = line.absentStaffId && line.slotKey ? slotOf(line) : null
-    return slot ? { ...slot, substituteStaffId: line.substituteStaffId, include: true } : null
-  }
-  const complete = lines.map((l) => ({ line: l, entry: entryOf(l) })).filter((x) => x.entry)
-  const entries = complete.map((x) => x.entry)
-  const absentIds = new Set(lines.map((l) => l.absentStaffId).filter(Boolean))
+  const { blocks, entries } = draft
+  const absentIds = new Set(blocks.map((b) => b.staffId).filter(Boolean))
+  const included = entries.filter((e) => e.include)
   const ctx = { periods, rows, absentIds, entries }
-  const reasonsFor = (staffId, entry) => busyReasons(staffId, entry.periodId, { ...ctx, exceptKey: entryKey(entry) })
-  const usedKeys = (exceptId) => new Set(lines
-    .filter((l) => l.id !== exceptId && l.slotKey)
-    .map((l) => `${l.absentStaffId}|${l.slotKey}`))
+  const reasonsFor = (staffId, e) => busyReasons(staffId, e.periodId, { ...ctx, exceptKey: entryKey(e) })
+  const forcedOf = (e) => (e.include && e.substituteStaffId != null ? reasonsFor(e.substituteStaffId, e) : [])
 
   // ── edits ──
-  const patch = (id, change) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...change } : l)))
-  const nextFree = (absentId, ls) => {
-    const used = new Set(ls.filter((l) => l.absentStaffId === absentId && l.slotKey).map((l) => l.slotKey))
-    return optionsFor(absentId).find((o) => !used.has(slotKeyOf(o))) ?? null
-  }
-  const addAfter = (line) => setLines((ls) => {
-    const next = line.absentStaffId ? nextFree(line.absentStaffId, ls) : null
-    const fresh = next
-      ? newLine({ absentStaffId: line.absentStaffId, slotKey: slotKeyOf(next) })
-      : newLine()
-    const i = ls.findIndex((l) => l.id === line.id)
-    return [...ls.slice(0, i + 1), fresh, ...ls.slice(i + 1)]
-  })
-  const addAllPeriods = (line) => setLines((ls) => {
-    const used = new Set(ls.filter((l) => l.absentStaffId === line.absentStaffId && l.slotKey).map((l) => l.slotKey))
-    const rest = optionsFor(line.absentStaffId).filter((o) => !used.has(slotKeyOf(o)))
-    if (!rest.length) return ls
-    const [first, ...others] = rest
-    const updated = ls.map((l) => (l.id === line.id && !l.slotKey ? { ...l, slotKey: slotKeyOf(first) } : l))
-    const fill = line.slotKey ? rest : others
-    const i = updated.findIndex((l) => l.id === line.id)
-    return [
-      ...updated.slice(0, i + 1),
-      ...fill.map((o) => newLine({ absentStaffId: line.absentStaffId, slotKey: slotKeyOf(o) })),
-      ...updated.slice(i + 1),
-    ]
-  })
-  const remove = (line) => setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.id !== line.id) : [newLine()]))
-  const chooseAbsent = (line, absentId) => setLines((ls) => ls.map((l) => {
-    if (l.id !== line.id) return l
-    const first = nextFree(absentId, ls.filter((x) => x.id !== line.id))
-    return { ...l, absentStaffId: absentId, slotKey: first ? slotKeyOf(first) : null, substituteStaffId: null, forceReason: '' }
-  }))
-  const suggestAll = () => setLines((ls) => {
-    let current = ls
-    for (const l of ls) {
-      const e = entryOf(l)
-      if (!e || l.substituteStaffId != null) continue
-      const ents = current.map(entryOf).filter(Boolean)
-      const pick = suggestFor(e, { staffList, periods, rows, absentIds, entries: ents })
-      if (pick) current = current.map((x) => (x.id === l.id ? { ...x, substituteStaffId: pick.id } : x))
+  const chooseAbsent = (blockId, staffId) => setDraft((d) => {
+    const old = d.blocks.find((b) => b.id === blockId)?.staffId
+    return {
+      blocks: d.blocks.map((b) => (b.id === blockId ? { ...b, staffId } : b)),
+      entries: [...d.entries.filter((e) => e.absentStaffId !== old), ...entriesOf(periods, rows, staffId)],
     }
-    return current
+  })
+  const addBlockAfter = (blockId) => setDraft((d) => {
+    const i = d.blocks.findIndex((b) => b.id === blockId)
+    return { ...d, blocks: [...d.blocks.slice(0, i + 1), newBlock(), ...d.blocks.slice(i + 1)] }
+  })
+  const removeBlock = (blockId) => setDraft((d) => {
+    const gone = d.blocks.find((b) => b.id === blockId)?.staffId
+    const left = d.blocks.filter((b) => b.id !== blockId)
+    return {
+      blocks: left.length ? left : [newBlock()],
+      entries: d.entries.filter((e) => e.absentStaffId !== gone),
+    }
+  })
+  const patchEntry = (key, patch) => setDraft((d) => ({
+    ...d, entries: d.entries.map((e) => (entryKey(e) === key ? { ...e, ...patch } : e)),
+  }))
+  const suggestAll = () => setDraft((d) => {
+    const ids = new Set(d.blocks.map((b) => b.staffId).filter(Boolean))
+    let list = d.entries
+    for (const e of list) {
+      if (!e.include || e.substituteStaffId != null) continue
+      const pick = suggestFor(e, { staffList, periods, rows, absentIds: ids, entries: list })
+      if (pick) list = list.map((x) => (entryKey(x) === entryKey(e) ? { ...x, substituteStaffId: pick.id, forceReason: '' } : x))
+    }
+    return { ...d, entries: list }
   })
 
-  // ── checks + save ──
-  const started = (l) => l.absentStaffId || l.slotKey || l.substituteStaffId
-  const incomplete = lines.filter((l) => started(l) && !entryOf(l))
-  const notCovered = complete.filter((x) => x.line.substituteStaffId == null)
+  // ── status ──
+  const notCovered = included.filter((e) => e.substituteStaffId == null)
+  const forced = included.filter((e) => forcedOf(e).length > 0)
 
   const save = async (status) => {
-    if (incomplete.length) {
-      toast.error('Each rota needs the absent teacher and his class. Fill them in or remove that rota.')
-      return
-    }
     const result = await onSave({
       status,
-      absentStaffIds: [...new Set(complete.map((x) => x.entry.absentStaffId))],
-      entries: complete.map(({ line, entry }) => {
-        const busy = line.substituteStaffId != null && reasonsFor(line.substituteStaffId, entry).length > 0
+      absentStaffIds: [...absentIds],
+      entries: included.map((e) => {
+        const isForced = forcedOf(e).length > 0
         return {
-          periodId: entry.periodId, classGroupId: entry.classGroupId, sectionId: entry.sectionId,
-          absentStaffId: entry.absentStaffId, substituteStaffId: line.substituteStaffId,
-          forced: busy, forceReason: busy ? line.forceReason : null,
+          periodId: e.periodId, classGroupId: e.classGroupId, sectionId: e.sectionId,
+          absentStaffId: e.absentStaffId, substituteStaffId: e.substituteStaffId,
+          forced: isForced, forceReason: isForced ? e.forceReason : null,
         }
       }),
     })
@@ -147,10 +134,13 @@ export default function RotaPanel({
     else toast.error(result.message)
   }
 
-  const name = (id) => staffList.find((s) => s.id === id)?.full_name ?? 'Teacher'
+  const cellBase = 'border-b border-r border-border px-1.5 py-1.5 align-top'
+  const firstCol = 'sticky left-0 z-10 w-44 min-w-44 bg-card border-b border-r border-border px-1.5 py-1.5 align-top'
+  const rowLabel = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'
+  const trigger = 'h-7 w-full px-2 text-xs data-[size=default]:h-7'
 
   return (
-    <section className="space-y-4 rounded-2xl border border-amber-500/40 bg-card p-4">
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <CalendarClock className="size-5 text-amber-600" />
@@ -167,7 +157,7 @@ export default function RotaPanel({
             Issued{rota.issuedBy ? ` by ${rota.issuedBy}` : ''}
           </Badge>
         )}
-        {rota?.status === 'draft' && <Badge variant="outline">Draft (not in force yet)</Badge>}
+        {rota?.status === 'draft' && <Badge variant="outline">Draft (only admins see it)</Badge>}
         {readOnly && <Badge variant="outline">Past date: read only</Badge>}
         <div className="ml-auto flex items-center gap-1">
           {rota?.status && (
@@ -183,159 +173,130 @@ export default function RotaPanel({
       {holiday && <p className="-mt-2 text-xs text-amber-600">{formatDate(date)} falls on {holiday}.</p>}
 
       {loading && !rota ? (
-        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      ) : columns.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          This campus has no teaching periods in the timetable yet.
+        </p>
       ) : (
-        <div className="space-y-3">
-          {lines.map((line) => {
-            const entry = entryOf(line)
-            const options = optionsFor(line.absentStaffId)
-            const taken = usedKeys(line.id)
-            const freeOptions = options.filter((o) => !taken.has(`${line.absentStaffId}|${slotKeyOf(o)}`))
-            const remaining = line.absentStaffId
-              ? options.filter((o) => !taken.has(`${line.absentStaffId}|${slotKeyOf(o)}`) && slotKeyOf(o) !== line.slotKey).length
-              : 0
-            const candidates = entry ? staffList.filter((s) => s.id !== entry.absentStaffId) : []
-            const free = entry ? candidates.filter((s) => reasonsFor(s.id, entry).length === 0)
-              .sort((a, b) => rotaLoad(a.id, entries) - rotaLoad(b.id, entries) || a.full_name.localeCompare(b.full_name)) : []
-            const busy = entry ? candidates.filter((s) => reasonsFor(s.id, entry).length > 0) : []
-            const chosenReasons = entry && line.substituteStaffId != null ? reasonsFor(line.substituteStaffId, entry) : []
-            const loadText = (s) => {
-              const n = rotaLoad(s.id, entries.filter((e) => entryKey(e) !== (entry ? entryKey(entry) : '')))
-              return n ? ` · ${n} rota today` : ''
-            }
-
-            return (
-              <div key={line.id} className="flex overflow-hidden rounded-xl border border-border">
-                <div className="min-w-0 flex-1 divide-y divide-border">
-                  {/* Row 1: the absent teacher and his class */}
-                  <div className="flex flex-wrap items-center gap-2 bg-destructive/5 px-3 py-2">
-                    <span className="w-28 shrink-0 text-xs font-semibold text-destructive">Absent</span>
-                    <Select
-                      value={line.absentStaffId == null ? NONE : String(line.absentStaffId)}
-                      onValueChange={(v) => chooseAbsent(line, v === NONE ? null : Number(v))}
-                      disabled={readOnly || saving}
-                    >
-                      <SelectTrigger className="h-8 w-60 data-[size=default]:h-8">
-                        <SelectValue>
-                          {(v) => (v === NONE ? <span className="text-muted-foreground">Absent teacher</span> : name(Number(v)))}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Absent teacher</SelectItem>
-                        {staffList.map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>
-                            {s.full_name}{s.name_initials ? ` (${s.name_initials})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={line.slotKey ?? NONE}
-                      onValueChange={(v) => patch(line.id, { slotKey: v === NONE ? null : v, substituteStaffId: null, forceReason: '' })}
-                      disabled={readOnly || saving || !line.absentStaffId}
-                    >
-                      <SelectTrigger className="h-8 min-w-0 flex-1 sm:min-w-64 data-[size=default]:h-8">
-                        <SelectValue>
-                          {(v) => {
-                            const o = options.find((x) => slotKeyOf(x) === v)
-                            if (!o) {
-                              return <span className="text-muted-foreground">
-                                {line.absentStaffId && !options.length ? 'No classes in his timetable' : 'His class'}
-                              </span>
-                            }
-                            return <span>P{o.periodNumber}{o.time ? ` · ${o.time}` : ''} · <RichText text={o.classLabel} ordinal />{o.subjectText ? ` · ${o.subjectText}` : ''}</span>
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>His class</SelectItem>
-                        {freeOptions.map((o) => (
-                          <SelectItem key={slotKeyOf(o)} value={slotKeyOf(o)}>
-                            <span>P{o.periodNumber}{o.time ? ` · ${o.time}` : ''} · <RichText text={o.classLabel} ordinal />{o.subjectText ? ` · ${o.subjectText}` : ''}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {!readOnly && remaining > 0 && (
-                      <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => addAllPeriods(line)} disabled={saving}>
-                        <ListPlus className="mr-1 size-3.5" />Add all his periods ({remaining})
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Row 2: the teacher who takes the class */}
-                  <div className="flex flex-wrap items-center gap-2 bg-emerald-500/5 px-3 py-2">
-                    <span className="w-28 shrink-0 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Takes the class</span>
-                    <Select
-                      value={line.substituteStaffId == null ? NONE : String(line.substituteStaffId)}
-                      onValueChange={(v) => patch(line.id, { substituteStaffId: v === NONE ? null : Number(v), forceReason: '' })}
-                      disabled={readOnly || saving || !entry}
-                    >
-                      <SelectTrigger className="h-8 w-60 data-[size=default]:h-8">
-                        <SelectValue>
-                          {(v) => (v === NONE
-                            ? <span className="text-muted-foreground">{entry ? 'Not covered yet' : 'Choose his class first'}</span>
-                            : name(Number(v)))}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Not covered yet</SelectItem>
-                        {free.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Free in this period</SelectLabel>
-                            {free.map((s) => (
-                              <SelectItem key={s.id} value={String(s.id)}>
-                                {s.full_name}{s.name_initials ? ` (${s.name_initials})` : ''}{loadText(s)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
+        <div className="overflow-x-auto rounded-xl border-l border-t border-border">
+          <table className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className={cn(firstCol, 'bg-muted text-left text-xs font-semibold')}>Teacher</th>
+                {columns.map((p) => (
+                  <th key={p.id} className={cn(cellBase, 'min-w-32 text-center text-xs font-semibold')}>
+                    P{p.period_number}
+                    {startTime(p) && <span className="block text-[10px] font-normal text-muted-foreground">{startTime(p)}</span>}
+                  </th>
+                ))}
+                <th className={cn(cellBase, 'w-9')} aria-label="Add or remove" />
+              </tr>
+            </thead>
+            <tbody>
+              {blocks.map((block) => {
+                const mine = entries.filter((e) => e.absentStaffId === block.staffId)
+                const inPeriod = (periodId) => mine.filter((e) => e.periodId === periodId)
+                const takenElsewhere = new Set(blocks.filter((b) => b.id !== block.id && b.staffId).map((b) => b.staffId))
+                const onRota = mine.filter((e) => e.include)
+                const covered = onRota.filter((e) => e.substituteStaffId != null).length
+                return [
+                  /* Row 1: the absent teacher and his classes */
+                  <tr key={`${block.id}-absent`}>
+                    <td className={firstCol}>
+                      <div className="mb-1 flex items-baseline justify-between gap-2">
+                        <span className={rowLabel}>Absent teacher</span>
+                        {block.staffId != null && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {mine.length === 0 ? 'no classes' : `${covered}/${onRota.length} covered`}
+                          </span>
                         )}
-                        {busy.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Busy: choosing one forces it</SelectLabel>
-                            {busy.map((s) => (
-                              <SelectItem key={s.id} value={String(s.id)}>
-                                <span className="text-muted-foreground">
-                                  {s.full_name} · {reasonsFor(s.id, entry).join(', ')}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {chosenReasons.length > 0 && (
-                      <>
-                        <span className="text-xs text-destructive">Forced: {chosenReasons.join(', ')}</span>
-                        <Input
-                          value={line.forceReason}
-                          onChange={(e) => patch(line.id, { forceReason: e.target.value })}
-                          placeholder="Reason (optional)"
-                          maxLength={255}
-                          className="h-8 w-48 text-xs"
-                          disabled={readOnly || saving}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
+                      </div>
+                      <Select
+                        value={block.staffId == null ? NONE : String(block.staffId)}
+                        onValueChange={(v) => v !== NONE && chooseAbsent(block.id, Number(v))}
+                        disabled={locked}
+                      >
+                        <SelectTrigger className={trigger}>
+                          <SelectValue>
+                            {(v) => (v === NONE
+                              ? <span className="text-muted-foreground">Select teacher</span>
+                              : <span className="truncate">{staffList.find((s) => String(s.id) === v)?.full_name ?? 'Teacher'}</span>)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {staffList.map((s) => (
+                            <SelectItem key={s.id} value={String(s.id)} disabled={takenElsewhere.has(s.id)}>
+                              {s.full_name}{takenElsewhere.has(s.id) ? ' (already listed)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    {columns.map((p) => (
+                      <td key={p.id} className={cn(cellBase, 'text-center align-middle')}>
+                        {inPeriod(p.id).map((e) => (
+                          <div key={entryKey(e)} className={cn('text-sm leading-tight', !e.include && 'opacity-40')}>
+                            <span className="font-medium"><RichText text={e.classLabel} ordinal /></span>
+                            {e.subjectText && <span className="block text-[11px] text-muted-foreground">{e.subjectText}</span>}
+                          </div>
+                        ))}
+                      </td>
+                    ))}
+                    <td rowSpan={2} className={cn(cellBase, 'align-middle')}>
+                      {!readOnly && (
+                        <div className="flex flex-col items-center gap-1">
+                          <Button
+                            type="button" variant="outline" size="icon-sm"
+                            onClick={() => addBlockAfter(block.id)} disabled={saving}
+                            title="Add another absent teacher" aria-label="Add another absent teacher"
+                          >
+                            <Plus className="size-4" />
+                          </Button>
+                          <Button
+                            type="button" variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive"
+                            onClick={() => removeBlock(block.id)} disabled={saving}
+                            title="Remove this teacher from the rota" aria-label="Remove this teacher from the rota"
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>,
 
-                {/* End of the pair: + another rota, remove this one */}
-                {!readOnly && (
-                  <div className="flex shrink-0 flex-col items-center justify-center gap-1 border-l border-border px-1.5">
-                    <Button type="button" variant="outline" size="icon-sm" onClick={() => addAfter(line)} disabled={saving}
-                      title="Add another rota" aria-label="Add another rota">
-                      <Plus className="size-4" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(line)} disabled={saving}
-                      title="Remove this rota" aria-label="Remove this rota" className="text-muted-foreground hover:text-destructive">
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                  /* Row 2: who takes each of those classes today */
+                  <tr key={`${block.id}-cover`}>
+                    <td className={firstCol}>
+                      <div className={cn(rowLabel, 'flex h-7 items-center')}>Today&apos;s replacement</div>
+                    </td>
+                    {columns.map((p) => {
+                      const list = inPeriod(p.id)
+                      return (
+                        <td key={p.id} className={cellBase}>
+                          <div className="space-y-1.5">
+                            {list.map((e) => (
+                              <ReplacementPicker
+                                key={entryKey(e)}
+                                entry={e}
+                                showClass={list.length > 1}
+                                staffList={staffList}
+                                reasonsFor={(staffId) => reasonsFor(staffId, e)}
+                                load={(staffId) => rotaLoad(staffId, entries.filter((x) => entryKey(x) !== entryKey(e)))}
+                                disabled={locked}
+                                triggerClass={trigger}
+                                onChange={(patch) => patchEntry(entryKey(e), patch)}
+                              />
+                            ))}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>,
+                ]
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -343,11 +304,12 @@ export default function RotaPanel({
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <p className="mr-auto text-xs text-muted-foreground">
-            {incomplete.length > 0
-              ? <span className="text-destructive">{incomplete.length} rota(s) need the absent teacher and his class.</span>
-              : notCovered.length > 0
-                ? `${notCovered.length} class(es) not covered yet.`
-                : complete.length > 0 ? `All ${complete.length} class(es) covered.` : ''}
+            {absentIds.size === 0
+              ? 'Select the absent teacher: his classes appear under each period, then choose who takes them.'
+              : [
+                  notCovered.length > 0 ? `${notCovered.length} period(s) not covered yet.` : included.length > 0 ? 'All periods covered.' : '',
+                  forced.length > 0 ? `${forced.length} forced (teacher busy).` : '',
+                ].filter(Boolean).join(' ')}
           </p>
           {rota?.status && (
             <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => setConfirmDelete(true)} disabled={saving}>
@@ -360,18 +322,18 @@ export default function RotaPanel({
           {rota?.status === 'issued' ? (
             <>
               <Button type="button" variant="outline" size="sm" onClick={() => save('draft')} disabled={saving}>Withdraw to draft</Button>
-              <Button type="button" size="sm" onClick={() => save('issued')} disabled={saving || incomplete.length > 0}>
+              <Button type="button" size="sm" onClick={() => save('issued')} disabled={saving}>
                 {saving ? 'Saving…' : 'Update issued rota'}
               </Button>
             </>
           ) : (
             <>
-              <Button type="button" variant="outline" size="sm" onClick={() => save('draft')} disabled={saving || complete.length === 0}>Save draft</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => save('draft')} disabled={saving || absentIds.size === 0}>Save draft</Button>
               <Button
                 type="button" size="sm"
                 className="bg-amber-600 text-white hover:bg-amber-700"
                 onClick={() => save('issued')}
-                disabled={saving || complete.length === 0 || incomplete.length > 0}
+                disabled={saving || absentIds.size === 0}
               >
                 {saving ? 'Saving…' : 'Issue Rota'}
               </Button>
@@ -393,5 +355,83 @@ export default function RotaPanel({
         deleting={saving}
       />
     </section>
+  )
+}
+
+// The "Today's replacement" select for one class: Not covered / Teacher present, then free
+// teachers (fewest rota periods today first), then busy ones (choosing one forces it).
+function ReplacementPicker({ entry, showClass, staffList, reasonsFor, load, disabled, triggerClass, onChange }) {
+  const candidates = staffList.filter((s) => s.id !== entry.absentStaffId)
+  const withReasons = candidates.map((s) => ({ s, reasons: reasonsFor(s.id) }))
+  const free = withReasons.filter((x) => x.reasons.length === 0)
+    .map((x) => ({ ...x, load: load(x.s.id) }))
+    .sort((a, b) => a.load - b.load || a.s.full_name.localeCompare(b.s.full_name))
+  const busy = withReasons.filter((x) => x.reasons.length > 0)
+  const chosenReasons = entry.include && entry.substituteStaffId != null ? reasonsFor(entry.substituteStaffId) : []
+
+  const value = !entry.include ? PRESENT : entry.substituteStaffId == null ? NONE : String(entry.substituteStaffId)
+  const choose = (v) => {
+    if (v === PRESENT) onChange({ include: false, substituteStaffId: null, forceReason: '' })
+    else if (v === NONE) onChange({ include: true, substituteStaffId: null, forceReason: '' })
+    else onChange({ include: true, substituteStaffId: Number(v), forceReason: '' })
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {showClass && (
+        <p className="text-[10px] font-medium leading-tight text-muted-foreground"><RichText text={entry.classLabel} ordinal /></p>
+      )}
+      <Select value={value} onValueChange={choose} disabled={disabled}>
+        <SelectTrigger
+          className={cn(triggerClass, chosenReasons.length > 0 && 'border-amber-500')}
+          aria-label={`Replacement for ${entry.classLabel}`}
+        >
+          <SelectValue>
+            {(v) => (v === NONE
+              ? <span className="text-muted-foreground">Select teacher</span>
+              : v === PRESENT
+                ? <span className="text-muted-foreground">Teacher present</span>
+                : <span className="truncate">{staffList.find((s) => String(s.id) === v)?.full_name ?? 'Teacher'}</span>)}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>Not covered yet</SelectItem>
+          <SelectItem value={PRESENT}>Teacher present (no rota)</SelectItem>
+          {free.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>Free in this period</SelectLabel>
+              {free.map(({ s, load: n }) => (
+                <SelectItem key={s.id} value={String(s.id)}>
+                  <span>{s.full_name}{n ? ` · ${n} rota today` : ''}</span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {busy.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>Busy: choosing one forces it</SelectLabel>
+              {busy.map(({ s, reasons }) => (
+                <SelectItem key={s.id} value={String(s.id)}>
+                  <span className="text-muted-foreground">{s.full_name} · {reasons.join(', ')}</span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+        </SelectContent>
+      </Select>
+      {chosenReasons.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[11px] leading-tight text-amber-700 dark:text-amber-400">Forced: {chosenReasons.join(', ')}</p>
+          <Input
+            value={entry.forceReason}
+            onChange={(e) => onChange({ forceReason: e.target.value })}
+            placeholder="Reason (optional)"
+            maxLength={255}
+            className="h-7 text-xs"
+            disabled={disabled}
+          />
+        </div>
+      )}
+    </div>
   )
 }
