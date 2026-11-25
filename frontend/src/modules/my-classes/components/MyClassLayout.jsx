@@ -4,10 +4,13 @@ import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRoleContext } from '@/modules/auth/hooks/useRoleContext'
 import { useMyTeachingClasses } from '../hooks/useMyTeachingClasses'
+import { useMyFormMasterClasses } from '../hooks/useMyFormMasterClasses'
 
 const TABS = [
   { path: 'students', label: 'Students' },
-  // more tabs later: quizzes, attendance, marks...
+  // Only the class's form master (Period 1 teacher, or today's rota cover of Period 1).
+  { path: 'attendance', label: 'Attendance', formMasterOnly: true },
+  // more tabs later: quizzes, marks...
 ]
 
 export default function MyClassLayout() {
@@ -20,6 +23,12 @@ export default function MyClassLayout() {
   useEffect(() => {
     if (campusId) fetchClasses()
   }, [campusId, fetchClasses])
+
+  const { classes: formMasterOf } = useMyFormMasterClasses(campusId)
+  const isFormMaster = formMasterOf.some(
+    (c) => String(c.classGroupId) === classGroupId && String(c.sectionId) === sectionId
+  )
+  const tabs = TABS.filter((t) => !t.formMasterOnly || isFormMaster)
 
   const current = classes.find(
     (c) => String(c.classGroupId) === classGroupId && String(c.sectionId) === sectionId
@@ -40,7 +49,7 @@ export default function MyClassLayout() {
       </div>
 
       <div className="flex items-center gap-1 border-b border-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <NavLink
             key={tab.path}
             to={tab.path}

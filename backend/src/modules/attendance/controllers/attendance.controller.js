@@ -2,7 +2,28 @@ const { matchedData } = require('express-validator');
 const ApiResponse = require('../../../utils/ApiResponse');
 const {
   getMySections, getOrCreateSession, saveRecords, submitSession, reopenSession, updateRemarks,
+  getRegister, saveRegister,
 } = require('../services/attendance.service');
+
+// ── GET /register ────────────────────────────────────────────────────────────────
+
+const getRegisterCtrl = async (req, res) => {
+  const { campusId } = req.params;
+  const { sectionId, date } = matchedData(req, { locations: ['query'] });
+  const register = await getRegister({ ability: req.ability, userId: req.user.id, campusId, sectionId, date });
+  res.json(ApiResponse.success('Attendance loaded', register));
+};
+
+// ── PUT /register ────────────────────────────────────────────────────────────────
+
+const saveRegisterCtrl = async (req, res) => {
+  const { campusId } = req.params;
+  const { sectionId, date, records, submit } = matchedData(req, { locations: ['body'] });
+  const register = await saveRegister({
+    ability: req.ability, userId: req.user.id, campusId, sectionId, date, records: records ?? [], submit: Boolean(submit),
+  });
+  res.json(ApiResponse.success(submit ? 'Attendance submitted' : 'Attendance saved', register));
+};
 
 // ── GET /my-sections ─────────────────────────────────────────────────────────────
 
@@ -64,4 +85,5 @@ const updateRemarksCtrl = async (req, res) => {
 
 module.exports = {
   getMySectionsCtrl, getOrCreateSessionCtrl, saveRecordsCtrl, submitSessionCtrl, reopenSessionCtrl, updateRemarksCtrl,
+  getRegisterCtrl, saveRegisterCtrl,
 };

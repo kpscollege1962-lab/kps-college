@@ -16,6 +16,7 @@ const { Op } = require('sequelize');
 const app = require('../src/app');
 const { sequelize, Role, UserRoleCampus, User, Staff, Homework, AcademicSession } = require('../src/models');
 const { generateAccessToken } = require('../src/utils/jwt');
+const { listCampusFormMasters } = require('../src/modules/teacher/utils/formMaster');
 const { ROLES } = require('../src/constants/roles');
 
 const MISSING_ID = 999999999;
@@ -106,3 +107,19 @@ test('teacher gets 403 on the rota endpoints (assign / issue / view)', async () 
   }
 });
 
+test("attendance: a teacher gets 403 on another class's register and 422 for a future date", async (t) => {
+  const c = `/campuses/${teacher.campusId}/attendance/register`;
+  const masters = await listCampusFormMasters(teacher.campusId, sessionId);
+  const mine = (m) => m.staffId === teacher.staffId;
+  const notMine = masters.find((m) => !masters.some((x) => mine(x) && x.sectionId === m.sectionId));
+  if (!notMine) return t.skip('no class at this campus with another form master');
+
+  // Refused before anything is created.
+  assert.equal(await call('GET', `${c}?sectionId=${notMine.sectionId}&date=2099-01-05`), 403);
+  assert.equal(await call('PUT', c, { sectionId: notMine.sectionId, date: '2099-01-05', records: [] }), 403);
+
+  const own = masters.find(mine);
+  if (own) {
+    assert.equal(await call('PUT', c, { sectionId: own.sectionId, date: '2099-01-05', records: [] }), 422);
+  }
+});

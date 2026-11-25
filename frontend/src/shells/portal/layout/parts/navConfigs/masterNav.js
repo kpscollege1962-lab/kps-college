@@ -65,8 +65,10 @@ export const MASTER_NAV = [
               [CAMPUS_ADMIN]: '/portal/assignments', [PRINCIPAL]: '/portal/assignments',
             },
             hideFor: [TEACHER] },
+          // Office (Super Admin, School Admin, Campus Admin, Principal): daily overview; a teacher
+          // goes to the Attendance tab of the class they are form master of.
           { id: 'attendance', title: 'Attendance', page: '/portal/attendance',
-            live: [SUPER_ADMIN, CAMPUS_ADMIN, TEACHER, STUDENT] },
+            live: [SUPER_ADMIN, SCHOOL_ADMIN, CAMPUS_ADMIN, PRINCIPAL, TEACHER, STUDENT] },
           { id: 'notebook-checking', title: 'Notebooks checking' },
           { id: 'class-reports', title: 'Reports' },
         ],

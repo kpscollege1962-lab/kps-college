@@ -34,6 +34,50 @@ const getOrCreateSessionRules = [
     }),
 ];
 
+// ── GET /register  and  PUT /register (one class on one date) ─────────────────────
+
+const getRegisterRules = [
+  query('sectionId')
+    .notEmpty().withMessage('Class is required')
+    .isInt({ min: 1 }).withMessage('Class must be a valid identifier'),
+
+  query('date')
+    .notEmpty().withMessage('Date is required')
+    .isISO8601().withMessage('Date must be a valid date'),
+];
+
+const saveRegisterRules = [
+  body('sectionId')
+    .notEmpty().withMessage('Class is required')
+    .isInt({ min: 1 }).withMessage('Class must be a valid identifier'),
+
+  body('date')
+    .notEmpty().withMessage('Date is required')
+    .isISO8601().withMessage('Date must be a valid date'),
+
+  body('records')
+    .isArray().withMessage('Records must be an array'),
+
+  body('records.*.studentId')
+    .notEmpty().withMessage('Student ID is required')
+    .isInt({ min: 1 }).withMessage('Student ID must be a valid identifier'),
+
+  body('records.*.status')
+    .notEmpty().withMessage('Status is required')
+    .isIn(['present', 'absent', 'late', 'leave']).withMessage('Invalid status'),
+
+  body('records.*.remarks')
+    .optional({ nullable: true })
+    .isString().withMessage('Reason must be text')
+    .trim()
+    .isLength({ max: 255 }).withMessage('Reason must be at most 255 characters'),
+
+  body('submit')
+    .optional()
+    .isBoolean().withMessage('submit must be true or false')
+    .toBoolean(),
+];
+
 // ── PUT /sessions/:attendanceSessionId/records ──────────────────────────────────
 
 const saveRecordsRules = [
@@ -86,4 +130,5 @@ const updateRemarksRules = [
 
 module.exports = {
   getMySectionsRules, getOrCreateSessionRules, saveRecordsRules, submitSessionRules, reopenSessionRules, updateRemarksRules,
+  getRegisterRules, saveRegisterRules,
 };

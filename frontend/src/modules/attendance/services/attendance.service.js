@@ -6,6 +6,8 @@ import {
   submitSessionApi,
   reopenSessionApi,
   updateRemarksApi,
+  getRegisterApi,
+  saveRegisterApi,
 } from '../api/attendance.api'
 
 export const getMySectionsService = (campusId, sessionId, date) =>
@@ -25,3 +27,9 @@ export const reopenSessionService = (campusId, sessionId) =>
 
 export const updateRemarksService = (campusId, recordId, data) =>
   handleApiCall(() => updateRemarksApi(campusId, recordId, data), 'Failed to update remarks')
+
+export const getRegisterService = (campusId, params) =>
+  handleApiCall(() => getRegisterApi(campusId, params), 'Failed to load attendance')
+
+export const saveRegisterService = (campusId, data) =>
+  handleApiCall(() => saveRegisterApi(campusId, data), 'Failed to save attendance')

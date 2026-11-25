@@ -11,10 +11,12 @@ const firstTeachingPeriodNumber = async (campusId) =>
   TimetablePeriod.min('period_number', { where: { campus_id: campusId, is_assembly: false } });
 
 // The classes (class + section) the signed-in teacher is form master of at a campus.
-// Built from their own timetable (same staff lookup and subject rules as "My timetable").
-const listMyFormMasterClasses = async (userId, campusId) => {
+// Built from their own timetable (same staff lookup and subject rules as "My timetable") for
+// `date` (default today): on a day with an ISSUED rota, the teacher covering Period 1 of a class
+// counts as its form master that day (`viaRota`).
+const listMyFormMasterClasses = async (userId, campusId, { date } = {}) => {
   const [entries, firstPeriod] = await Promise.all([
-    listMyTimetable(userId, campusId),
+    listMyTimetable(userId, campusId, date ? { date } : undefined),
     firstTeachingPeriodNumber(campusId),
   ]);
   if (firstPeriod == null) return [];
@@ -23,7 +25,9 @@ const listMyFormMasterClasses = async (userId, campusId) => {
   for (const e of entries) {
     if (e.isAssembly || e.periodNumber !== firstPeriod || e.sectionId == null) continue;
     const key = `${e.classGroupId}-${e.sectionId}`;
-    if (!classes.has(key)) {
+    if (classes.has(key)) {
+      if (!e.rotaFor) classes.get(key).viaRota = false; // their own Period 1 too
+    } else {
       classes.set(key, {
         key,
         classGroupId: e.classGroupId,
@@ -31,14 +35,15 @@ const listMyFormMasterClasses = async (userId, campusId) => {
         level:        e.level,
         sectionId:    e.sectionId,
         sectionName:  e.sectionName,
+        viaRota:      Boolean(e.rotaFor),
       });
     }
   }
   return [...classes.values()];
 };
 
-const isMyFormMasterClass = async (userId, campusId, classGroupId, sectionId) => {
-  const classes = await listMyFormMasterClasses(userId, campusId);
+const isMyFormMasterClass = async (userId, campusId, classGroupId, sectionId, options) => {
+  const classes = await listMyFormMasterClasses(userId, campusId, options);
   return classes.some((c) => c.classGroupId === classGroupId && c.sectionId === sectionId);
 };
 
